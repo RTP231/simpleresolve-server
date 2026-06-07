@@ -232,31 +232,38 @@ async def get_stats():
     }
 
 
-@router.get("/openai-balance", dependencies=[Depends(_require_admin)])
-async def get_openai_balance():
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+@router.get("/anthropic-usage", dependencies=[Depends(_require_admin)])
+async def get_anthropic_usage():
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "OPENAI_API_KEY no configurada.")
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "ANTHROPIC_API_KEY no configurada.")
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
-                "https://api.openai.com/v1/dashboard/billing/credit_grants",
-                headers={"Authorization": f"Bearer {api_key}"},
+                "https://api.anthropic.com/v1/usage",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                },
             )
         if resp.status_code == 401:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, "API key de OpenAI inválida.")
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, "API key de Anthropic inválida.")
         if not resp.is_success:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"OpenAI respondió {resp.status_code}.")
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Anthropic respondió {resp.status_code}.")
         data = resp.json()
+        input_tokens  = int(data.get("input_tokens")  or 0)
+        output_tokens = int(data.get("output_tokens") or 0)
+        cost_raw      = data.get("cost_usd") or data.get("total_cost") or data.get("cost") or 0
         return {
-            "total_granted":   round(data.get("total_granted",   0), 4),
-            "total_used":      round(data.get("total_used",      0), 4),
-            "total_available": round(data.get("total_available", 0), 4),
+            "input_tokens":  input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens":  input_tokens + output_tokens,
+            "cost_usd":      round(float(cost_raw), 4),
         }
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "No se pudo conectar con OpenAI.")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "No se pudo conectar con Anthropic.")
 
 
 @router.post("/config/price", dependencies=[Depends(_require_admin)])

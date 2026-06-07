@@ -448,8 +448,8 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance:none; }
 .oai-title  { font-size:12px; font-weight:600; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.6px; }
 .oai-badge  {
   font-size:10px; font-weight:700;
-  background:rgba(16,163,127,0.12); color:#10a37f;
-  border:1px solid rgba(16,163,127,0.28);
+  background:rgba(204,91,58,0.14); color:#e8794a;
+  border:1px solid rgba(204,91,58,0.32);
   padding:2px 8px; border-radius:100px; letter-spacing:0.4px;
 }
 

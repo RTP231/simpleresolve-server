@@ -198,33 +198,48 @@ $('btn-logout').addEventListener('click', () => {
 //  DASHBOARD
 // ══════════════════════════════════════════════════════════════
 async function loadDashboard() {
-  await Promise.all([loadUsers(), loadStats(), loadOpenAIBalance()]);
+  await Promise.all([loadUsers(), loadStats(), loadAnthropicUsage()]);
 }
 
-async function loadOpenAIBalance() {
+async function loadAnthropicUsage() {
   const card = $('openai-balance-card');
   try {
-    const d = await apiFetch('/admin/openai-balance');
-    const available = d.total_available;
-    const granted   = d.total_granted;
-    const used      = d.total_used;
-    const pct       = granted > 0 ? Math.min(100, (used / granted) * 100) : 0;
-    const isLow     = available < 5;
+    const d = await apiFetch('/admin/anthropic-usage');
+    const cost         = d.cost_usd      || 0;
+    const totalTokens  = d.total_tokens  || 0;
+    const inputTokens  = d.input_tokens  || 0;
+    const outputTokens = d.output_tokens || 0;
+    const isHigh       = cost > 50;
+    const pct          = Math.min(100, (cost / 100) * 100);
 
     const valEl = $('oai-available');
-    valEl.textContent = `$${available.toFixed(2)}`;
-    valEl.className   = `oai-value${isLow ? ' danger' : ''}`;
+    if (cost > 0) {
+      valEl.textContent = `$${cost.toFixed(2)}`;
+    } else {
+      valEl.textContent = totalTokens > 0
+        ? `${(totalTokens / 1_000_000).toFixed(2)}M`
+        : '—';
+    }
+    valEl.className = `oai-value${isHigh ? ' danger' : ''}`;
 
     const barEl = $('oai-bar-fill');
     barEl.style.width = `${pct.toFixed(1)}%`;
-    barEl.className   = `oai-bar-fill${isLow ? ' danger' : ''}`;
+    barEl.className   = `oai-bar-fill${isHigh ? ' danger' : ''}`;
 
-    $('oai-used-label').textContent = `$${used.toFixed(2)} usado de $${granted.toFixed(2)} otorgados`;
+    if (totalTokens > 0) {
+      const fmt = n => n >= 1_000_000
+        ? `${(n/1_000_000).toFixed(2)}M`
+        : n >= 1_000 ? `${(n/1_000).toFixed(1)}k` : String(n);
+      $('oai-used-label').textContent =
+        `${fmt(inputTokens)} entrada · ${fmt(outputTokens)} salida`;
+    } else {
+      $('oai-used-label').textContent = 'Sin datos de tokens';
+    }
 
-    if (isLow) $('oai-alert').classList.remove('hidden');
+    if (isHigh) $('oai-alert').classList.remove('hidden');
   } catch (err) {
     const errEl = $('oai-error');
-    errEl.textContent = err.detail || 'No se pudo obtener el saldo.';
+    errEl.textContent = err.detail || 'No se pudo obtener el uso.';
     errEl.classList.remove('hidden');
     $('oai-used-label').textContent = '';
   } finally {
