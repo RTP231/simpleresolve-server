@@ -10,3 +10,4 @@ pydantic[email]>=2.0.0
 pyotp>=2.9.0
 qrcode[pil]>=7.4.2
 aiofiles>=23.0.0
+httpx>=0.24.0

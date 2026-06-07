@@ -117,6 +117,26 @@
       </div>
     </div>
 
+    <!-- ── Saldo OpenAI ── -->
+    <div class="openai-card oai-loading" id="openai-balance-card">
+      <div class="oai-header">
+        <span class="oai-title">Saldo API OpenAI</span>
+        <span class="oai-badge">OPENAI</span>
+      </div>
+      <div class="oai-body">
+        <span class="oai-value" id="oai-available">—</span>
+        <span class="oai-value-label">disponible</span>
+      </div>
+      <div class="oai-progress">
+        <div class="oai-bar-track">
+          <div class="oai-bar-fill" id="oai-bar-fill" style="width:0%"></div>
+        </div>
+        <span class="oai-used-label" id="oai-used-label">cargando…</span>
+      </div>
+      <div class="oai-alert hidden" id="oai-alert">⚠ Saldo bajo — menos de $5 disponibles</div>
+      <div class="oai-error hidden" id="oai-error"></div>
+    </div>
+
     <!-- ── Gráfica ── -->
     <div class="chart-card">
       <p class="chart-title">Capturas por día — últimos 7 días</p>

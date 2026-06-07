@@ -198,7 +198,38 @@ $('btn-logout').addEventListener('click', () => {
 //  DASHBOARD
 // ══════════════════════════════════════════════════════════════
 async function loadDashboard() {
-  await Promise.all([loadUsers(), loadStats()]);
+  await Promise.all([loadUsers(), loadStats(), loadOpenAIBalance()]);
+}
+
+async function loadOpenAIBalance() {
+  const card = $('openai-balance-card');
+  try {
+    const d = await apiFetch('/admin/openai-balance');
+    const available = d.total_available;
+    const granted   = d.total_granted;
+    const used      = d.total_used;
+    const pct       = granted > 0 ? Math.min(100, (used / granted) * 100) : 0;
+    const isLow     = available < 5;
+
+    const valEl = $('oai-available');
+    valEl.textContent = `$${available.toFixed(2)}`;
+    valEl.className   = `oai-value${isLow ? ' danger' : ''}`;
+
+    const barEl = $('oai-bar-fill');
+    barEl.style.width = `${pct.toFixed(1)}%`;
+    barEl.className   = `oai-bar-fill${isLow ? ' danger' : ''}`;
+
+    $('oai-used-label').textContent = `$${used.toFixed(2)} usado de $${granted.toFixed(2)} otorgados`;
+
+    if (isLow) $('oai-alert').classList.remove('hidden');
+  } catch (err) {
+    const errEl = $('oai-error');
+    errEl.textContent = err.detail || 'No se pudo obtener el saldo.';
+    errEl.classList.remove('hidden');
+    $('oai-used-label').textContent = '';
+  } finally {
+    card.classList.remove('oai-loading');
+  }
 }
 
 async function loadStats() {
