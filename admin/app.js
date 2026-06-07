@@ -129,19 +129,8 @@ async function submitPassword() {
     _step1Token = data.step1_token;
 
     if (data.totp_setup) {
-      const container = $('qr-canvas');
-      container.innerHTML = '';
-      new QRCode(container, {
-        text: data.totp_uri,
-        width: 180,
-        height: 180,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-      });
+      $('qr-img').src = `data:image/png;base64,${data.qr_image}`;
       $('totp-secret-text').textContent = data.totp_secret;
-      $('qr-secret-fallback').classList.add('hidden');
-      $('btn-show-secret').textContent = '¿No puedes escanear? Ver código manual';
       $('qr-setup').classList.remove('hidden');
     } else {
       $('qr-setup').classList.add('hidden');
@@ -421,17 +410,10 @@ $('btn-confirm-delete').addEventListener('click', async () => {
   }
 });
 
-// ── Copiar / mostrar secreto TOTP ────────────────────────────────────────────
+// ── Copiar secreto TOTP ───────────────────────────────────────────────────────
 function copySecret() {
   const secret = $('totp-secret-text').textContent;
   navigator.clipboard.writeText(secret).then(() => toast('Secreto copiado.'));
-}
-
-function toggleSecret() {
-  const el  = $('qr-secret-fallback');
-  const btn = $('btn-show-secret');
-  const nowHidden = el.classList.toggle('hidden');
-  btn.textContent = nowHidden ? '¿No puedes escanear? Ver código manual' : 'Ocultar código';
 }
 
 // ── Enter en modal ────────────────────────────────────────────────────────────

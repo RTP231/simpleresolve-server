@@ -35,16 +35,13 @@
             Abre <strong>Google Authenticator</strong> → <strong>+</strong> →
             <strong>Escanear código QR</strong>:
           </p>
-          <div id="qr-canvas" class="qr-wrapper"></div>
-          <button class="btn-link" id="btn-show-secret" onclick="toggleSecret()"
-                  style="display:block;width:100%;text-align:center;font-size:11px;color:var(--muted);margin:6px 0;">
-            ¿No puedes escanear? Ver código manual
-          </button>
-          <div id="qr-secret-fallback" class="hidden">
-            <div class="secret-box">
-              <code id="totp-secret-text"></code>
-              <button class="btn-copy" onclick="copySecret()" title="Copiar">⎘</button>
-            </div>
+          <div class="qr-wrapper">
+            <img id="qr-img" src="" alt="QR TOTP">
+          </div>
+          <p class="secret-label" style="margin-top:10px;">Código secreto</p>
+          <div class="secret-box">
+            <code id="totp-secret-text"></code>
+            <button class="btn-copy" onclick="copySecret()" title="Copiar">⎘</button>
           </div>
           <p class="secret-hint">
             Guárdalo en Railway como <code>ADMIN_TOTP_SECRET</code> y no volverá a aparecer.
@@ -190,9 +187,6 @@
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
-          integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSi2jPQkSAimMmENwkjIXiHGLj2Gi22eNXaA=="
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="app.js"></script>
 </body>
 </html>

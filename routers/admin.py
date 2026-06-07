@@ -1,6 +1,9 @@
+import base64
+import io
 import os
 import time
 import pyotp
+import qrcode
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -141,9 +144,11 @@ async def auth_password(body: PasswordBody, request: Request):
     response: dict = {"step1_token": step1_token, "totp_setup": is_new}
     if is_new:
         totp = pyotp.TOTP(secret)
-        response["totp_uri"] = totp.provisioning_uri(
-            name="Admin", issuer_name="SimpleResolve"
-        )
+        uri = totp.provisioning_uri(name="Admin", issuer_name="SimpleResolve")
+        img = qrcode.make(uri)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        response["qr_image"] = base64.b64encode(buf.getvalue()).decode()
         response["totp_secret"] = secret
 
     return response
