@@ -1,16 +1,27 @@
 import os
 import base64
 import anthropic
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from schemas import AnalyzeResponse, StatusResponse
 from database import supabase
 from dependencies import get_current_user
 
+load_dotenv()
+
 router = APIRouter()
 
 ALLOWED_MEDIA_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"}
 
-_claude = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+def _get_claude():
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ANTHROPIC_API_KEY no configurada en el servidor.",
+        )
+    return anthropic.Anthropic(api_key=api_key)
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -35,8 +46,10 @@ async def analyze(
     image_bytes = await image.read()
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
+    claude = _get_claude()
+
     try:
-        with _claude.messages.stream(
+        with claude.messages.stream(
             model="claude-opus-4-8",
             max_tokens=1024,
             messages=[{
@@ -55,6 +68,16 @@ async def analyze(
             }],
         ) as stream:
             message = stream.get_final_message()
+    except anthropic.AuthenticationError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ANTHROPIC_API_KEY inválida o revocada. Revisa la variable en Railway.",
+        )
+    except anthropic.APIConnectionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"No se pudo conectar a la API de Anthropic: {exc}",
+        )
     except anthropic.APIError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
