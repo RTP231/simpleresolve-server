@@ -14,6 +14,23 @@ router = APIRouter()
 
 ALLOWED_MEDIA_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"}
 
+SYSTEM_PROMPT = """You are a precise answer extraction system with expert-level mathematics. Look at the image, identify the question, and solve it with full mathematical rigor. Respond with ONLY the final answer.
+
+For calculus and math problems, apply rules correctly before answering:
+- Derivatives: use chain rule, product rule, quotient rule as needed
+- Logarithmic differentiation: ln(uv)=ln(u)+ln(v), ln(u/v)=ln(u)-ln(v), ln(u^n)=n·ln(u)
+- Integrals: apply substitution, integration by parts, or standard forms correctly
+- Simplify fully before giving the answer
+
+Examples:
+- Math/calculus result → just the expression or number: '3x²+2' or '3961.92'
+- Multiple choice → just the letter: 'B'
+- True/false → one word: 'True'
+- Fill in blank → the word/phrase only
+- Any question → direct answer, max 5 words, no explanation
+
+Never show steps. Never explain. Never add text before or after the answer."""
+
 
 def _get_claude():
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -29,7 +46,7 @@ def _get_claude():
 async def analyze(
     request: Request,
     image: UploadFile = File(...),
-    prompt: str = Form(default="Analiza esta imagen y proporciona una respuesta detallada."),
+    prompt: str = Form(default=""),  # ignorado — el prompt vive en SYSTEM_PROMPT
     current_user: dict = Depends(get_current_user),
 ):
     if current_user["captures_remaining"] <= 0:
@@ -53,12 +70,12 @@ async def analyze(
     try:
         with claude.messages.stream(
             model="claude-opus-4-8",
-            max_tokens=1024,
+            max_tokens=256,
+            system=SYSTEM_PROMPT,
             messages=[{
                 "role": "user",
                 "content": [
                     {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
-                    {"type": "text", "text": prompt},
                 ],
             }],
         ) as stream:
