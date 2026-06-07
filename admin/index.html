@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleResolve · Admin</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════ LOGIN ═══ -->
+  <div id="screen-login" class="screen active">
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="logo-text">SimpleResolve</span>
+        <span class="logo-badge">Admin</span>
+      </div>
+
+      <!-- Paso 1: contraseña -->
+      <div id="step-password">
+        <p class="step-label">Contraseña maestra</p>
+        <input id="inp-password" type="password" class="inp" placeholder="••••••••" autocomplete="current-password">
+        <button id="btn-password" class="btn btn-primary btn-full">Continuar →</button>
+        <div id="err-password" class="error-msg hidden"></div>
+      </div>
+
+      <!-- Paso 2: TOTP -->
+      <div id="step-totp" class="hidden">
+        <button id="btn-back" class="btn-link back-btn">← Volver</button>
+
+        <!-- QR (solo primera vez) -->
+        <div id="qr-setup" class="hidden">
+          <p class="step-label qr-title">Primera configuración</p>
+          <p class="step-hint">Escanea con <strong>Google Authenticator</strong> para vincular tu cuenta.</p>
+          <div class="qr-wrapper">
+            <canvas id="qr-canvas"></canvas>
+          </div>
+          <div class="secret-box">
+            <span class="secret-label">Clave manual:</span>
+            <code id="totp-secret-text"></code>
+            <button class="btn-copy" onclick="copySecret()" title="Copiar">⎘</button>
+          </div>
+          <p class="secret-hint">
+            Guarda también como variable de entorno:<br>
+            <code>ADMIN_TOTP_SECRET=<span id="secret-env"></span></code>
+          </p>
+          <hr class="divider">
+        </div>
+
+        <p class="step-label">Código de verificación</p>
+        <input id="inp-totp" type="text" class="inp inp-totp" placeholder="000 000"
+               maxlength="7" autocomplete="one-time-code" inputmode="numeric">
+        <button id="btn-totp" class="btn btn-primary btn-full">Iniciar sesión</button>
+        <div id="err-totp" class="error-msg hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ DASHBOARD ═══ -->
+  <div id="screen-dashboard" class="screen hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="logo-text">SimpleResolve</span>
+        <span class="logo-badge">Admin</span>
+      </div>
+      <div class="topbar-right">
+        <span class="admin-pill">● Admin</span>
+        <button id="btn-logout" class="btn btn-ghost">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Stats -->
+      <div class="stats-row" id="stats-row">
+        <div class="stat-card">
+          <span class="stat-value" id="stat-total">—</span>
+          <span class="stat-label">Total usuarios</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value success" id="stat-active">—</span>
+          <span class="stat-label">Activos</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value warning" id="stat-expiring">—</span>
+          <span class="stat-label">Por vencer</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value danger" id="stat-expired">—</span>
+          <span class="stat-label">Vencidos / Bloqueados</span>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <h2 class="section-title">Usuarios</h2>
+        <button id="btn-new-user" class="btn btn-primary">+ Nuevo usuario</button>
+      </div>
+
+      <!-- Tabla -->
+      <div class="table-wrapper">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Capturas</th>
+              <th>Vencimiento</th>
+              <th>Estado</th>
+              <th class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="5" class="loading-row">Cargando usuarios…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- ════════════════════════════════ MODAL: Crear / Editar ═══ -->
+  <div id="modal-user" class="modal-overlay hidden" onclick="overlayClose(event,'modal-user')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Nuevo usuario</h3>
+        <button class="btn-close" onclick="closeModal('modal-user')">✕</button>
+      </div>
+
+      <div id="create-fields">
+        <label class="field-label">Email</label>
+        <input id="f-email" type="email" class="inp" placeholder="correo@ejemplo.com">
+        <label class="field-label">Contraseña</label>
+        <input id="f-password" type="password" class="inp" placeholder="Mínimo 8 caracteres">
+      </div>
+
+      <div class="field-row">
+        <div class="field-col">
+          <label class="field-label">Límite de capturas</label>
+          <input id="f-limite" type="number" class="inp" min="0" placeholder="200">
+        </div>
+        <div class="field-col" id="remaining-col">
+          <label class="field-label">Capturas restantes</label>
+          <input id="f-remaining" type="number" class="inp" min="0">
+        </div>
+      </div>
+
+      <div id="days-field">
+        <label class="field-label" id="days-label">Días de acceso</label>
+        <input id="f-days" type="number" class="inp" min="1" placeholder="30">
+        <p id="days-hint" class="field-hint hidden"></p>
+      </div>
+
+      <div id="active-field" class="hidden">
+        <label class="toggle-label">
+          <input id="f-active" type="checkbox" class="toggle-inp" checked>
+          <span class="toggle-track"></span>
+          <span class="toggle-text">Cuenta activa</span>
+        </label>
+      </div>
+
+      <div id="modal-error" class="error-msg hidden"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-user')">Cancelar</button>
+        <button id="btn-modal-save" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════ MODAL: Eliminar ═══ -->
+  <div id="modal-delete" class="modal-overlay hidden" onclick="overlayClose(event,'modal-delete')">
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h3>Eliminar usuario</h3>
+        <button class="btn-close" onclick="closeModal('modal-delete')">✕</button>
+      </div>
+      <p class="delete-text">¿Eliminar la cuenta de <strong id="delete-email"></strong>?<br>
+        <span class="delete-warn">Esta acción no se puede deshacer.</span>
+      </p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-delete')">Cancelar</button>
+        <button id="btn-confirm-delete" class="btn btn-danger">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

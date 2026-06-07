@@ -24,7 +24,6 @@ async def health():
     return {"status": "ok"}
 
 
-# Panel admin (archivos estáticos en servidor/admin/)
-_admin_panel_dir = Path(__file__).parent.parent / "admin"
-if _admin_panel_dir.exists():
-    app.mount("/panel", StaticFiles(directory=str(_admin_panel_dir), html=True), name="admin_panel")
+# Panel admin (archivos estáticos en admin/ junto al servidor)
+_admin_panel_dir = Path(__file__).parent / "admin"
+app.mount("/panel", StaticFiles(directory=str(_admin_panel_dir), html=True), name="admin_panel")
