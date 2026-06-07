@@ -7,8 +7,9 @@ const API_BASE = 'https://simpleresolve-server-production.up.railway.app';
 let _step1Token   = null;
 let _adminToken   = null;
 let _users        = [];
-let _editingId    = null;   // null = crear, string = editar
+let _editingId    = null;
 let _deletingId   = null;
+let _detailUserId = null;
 let _toastTimer   = null;
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
@@ -91,16 +92,33 @@ function expiryHTML(isoStr) {
 
 function statusBadge(user) {
   if (!user.activo) {
-    return '<span class="badge badge-blocked">■ Bloqueado</span>';
+    return '<span class="badge badge-blocked">■ Suspendido</span>';
   }
   const days = daysUntil(user.fecha_vencimiento);
   if (days !== null && days < 0) {
     return '<span class="badge badge-expired">✕ Vencida</span>';
   }
+  if (user.last_seen) {
+    const diffMin = (Date.now() - new Date(user.last_seen)) / 60000;
+    if (diffMin < 5) {
+      return '<span class="badge badge-online">◉ Activo ahora</span>';
+    }
+  }
   if (days !== null && days <= 5) {
     return '<span class="badge badge-warning">⚠ Por vencer</span>';
   }
   return '<span class="badge badge-active">● Activo</span>';
+}
+
+function timeAgo(isoStr) {
+  if (!isoStr) return 'Nunca';
+  const diff = Date.now() - new Date(isoStr);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Hace un momento';
+  if (mins < 60) return `Hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Hace ${hrs}h`;
+  return `Hace ${Math.floor(hrs / 24)}d`;
 }
 
 function capturesText(user) {
@@ -250,7 +268,13 @@ function renderUsers() {
       <td>${statusBadge(u)}</td>
       <td class="col-actions">
         <div class="actions-cell">
+          <button class="btn-icon" title="Ver detalles" onclick="openDetail('${u.id}')">◎</button>
           <button class="btn-icon" title="Editar" onclick="openEdit('${u.id}')">✎</button>
+          <button class="btn-icon ${u.activo ? 'suspend-btn' : 'activate-btn'}"
+                  title="${u.activo ? 'Suspender' : 'Activar'}"
+                  onclick="quickToggleSuspend('${u.id}')">
+            ${u.activo ? '⊘' : '▶'}
+          </button>
           <button class="btn-icon danger" title="Eliminar" onclick="openDelete('${u.id}','${escHtml(u.email)}')">🗑</button>
         </div>
       </td>
@@ -421,6 +445,101 @@ function copySecret() {
   const el = $(id);
   if (el) el.addEventListener('keydown', e => e.key === 'Enter' && saveUser());
 });
+
+// ── Modal: detalle de usuario ─────────────────────────────────────────────────
+function openDetail(id) {
+  _detailUserId = id;
+  const user = _users.find(u => u.id === id);
+  if (!user) return;
+
+  $('detail-email').textContent     = user.email;
+  $('detail-status-badge').innerHTML = statusBadge(user);
+  $('detail-created').textContent   = formatDate(user.created_at);
+  $('detail-last-seen').textContent = timeAgo(user.last_seen);
+  $('detail-total-used').textContent = '…';
+  $('detail-today-used').textContent = '…';
+  $('login-log-tbody').innerHTML = '<tr><td colspan="3" class="loading-row">Cargando…</td></tr>';
+
+  const btn = $('btn-toggle-suspend');
+  btn.textContent = user.activo ? 'Suspender cuenta' : 'Activar cuenta';
+  btn.className   = user.activo ? 'btn btn-danger' : 'btn btn-primary';
+
+  showModal('modal-detail');
+  loadUserDetail(id);
+}
+
+async function loadUserDetail(id) {
+  try {
+    const data = await apiFetch(`/admin/users/${id}/details`);
+    $('detail-total-used').textContent = data.captures_used_total;
+    $('detail-today-used').textContent = data.captures_used_today;
+
+    const logs = data.login_logs;
+    if (!logs.length) {
+      $('login-log-tbody').innerHTML = '<tr><td colspan="3" class="empty-row">Sin inicios de sesión registrados.</td></tr>';
+      return;
+    }
+    $('login-log-tbody').innerHTML = logs.map(l => {
+      const dt   = new Date(l.logged_at);
+      const fecha = dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+      const hora  = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return `<tr>
+        <td>${fecha}</td>
+        <td>${hora}</td>
+        <td><code class="ip-code">${escHtml(l.ip)}</code></td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    $('login-log-tbody').innerHTML =
+      `<tr><td colspan="3" class="loading-row" style="color:var(--danger)">Error: ${escHtml(err.detail || String(err))}</td></tr>`;
+  }
+}
+
+async function toggleSuspend() {
+  if (!_detailUserId) return;
+  const user = _users.find(u => u.id === _detailUserId);
+  if (!user) return;
+
+  const newActivo = !user.activo;
+  const btn = $('btn-toggle-suspend');
+  btnLoading(btn, true, '…');
+
+  try {
+    await apiFetch(`/admin/users/${_detailUserId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ activo: newActivo }),
+    });
+    toast(newActivo ? 'Cuenta activada.' : 'Cuenta suspendida.', 'success');
+    await loadUsers();
+    const updated = _users.find(u => u.id === _detailUserId);
+    if (updated) {
+      $('detail-status-badge').innerHTML = statusBadge(updated);
+      btn.textContent = updated.activo ? 'Suspender cuenta' : 'Activar cuenta';
+      btn.className   = updated.activo ? 'btn btn-danger' : 'btn btn-primary';
+    }
+  } catch (err) {
+    toast(err.detail || 'Error al cambiar estado.', 'error');
+    btn.textContent = user.activo ? 'Suspender cuenta' : 'Activar cuenta';
+    btn.className   = user.activo ? 'btn btn-danger' : 'btn btn-primary';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function quickToggleSuspend(id) {
+  const user = _users.find(u => u.id === id);
+  if (!user) return;
+  try {
+    await apiFetch(`/admin/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ activo: !user.activo }),
+    });
+    toast(user.activo ? 'Cuenta suspendida.' : 'Cuenta activada.', 'success');
+    await loadUsers();
+  } catch (err) {
+    toast(err.detail || 'Error al cambiar estado.', 'error');
+  }
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 showScreen('login');

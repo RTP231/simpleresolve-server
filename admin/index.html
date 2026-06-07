@@ -167,6 +167,55 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════ MODAL: Detalle usuario ═══ -->
+  <div id="modal-detail" class="modal-overlay hidden" onclick="overlayClose(event,'modal-detail')">
+    <div class="modal-card modal-detail-card">
+      <div class="modal-header">
+        <div>
+          <h3 id="detail-email">—</h3>
+          <div id="detail-status-badge" style="margin-top:6px;"></div>
+        </div>
+        <button class="btn-close" onclick="closeModal('modal-detail')">✕</button>
+      </div>
+
+      <div class="detail-stats">
+        <div class="detail-stat">
+          <span class="detail-stat-value" id="detail-total-used">—</span>
+          <span class="detail-stat-label">Capturas usadas (total)</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-stat-value" id="detail-today-used">—</span>
+          <span class="detail-stat-label">Usadas hoy</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-stat-value" id="detail-created">—</span>
+          <span class="detail-stat-label">Cuenta creada</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-stat-value" id="detail-last-seen">—</span>
+          <span class="detail-stat-label">Última actividad</span>
+        </div>
+      </div>
+
+      <p class="detail-section-title">Historial de inicios de sesión</p>
+      <div class="login-log-wrapper">
+        <table class="login-log-table">
+          <thead>
+            <tr><th>Fecha</th><th>Hora</th><th>IP</th></tr>
+          </thead>
+          <tbody id="login-log-tbody">
+            <tr><td colspan="3" class="loading-row">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer detail-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-detail')">Cerrar</button>
+        <button id="btn-toggle-suspend" class="btn btn-danger" onclick="toggleSuspend()">Suspender cuenta</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════════════════════════ MODAL: Eliminar ═══ -->
   <div id="modal-delete" class="modal-overlay hidden" onclick="overlayClose(event,'modal-delete')">
     <div class="modal-card modal-small">

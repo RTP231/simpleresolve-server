@@ -174,9 +174,35 @@ async def auth_totp(body: TotpBody, request: Request):
 @router.get("/users", dependencies=[Depends(_require_admin)])
 async def list_users():
     result = supabase.table("users").select(
-        "id,email,captures_remaining,captures_limite,fecha_vencimiento,activo,created_at"
+        "id,email,captures_remaining,captures_limite,fecha_vencimiento,activo,created_at,last_seen,captures_used_today"
     ).order("created_at", desc=True).execute()
     return result.data
+
+
+@router.get("/users/{user_id}/details", dependencies=[Depends(_require_admin)])
+async def user_details(user_id: str):
+    user_result = supabase.table("users").select(
+        "id,email,captures_remaining,captures_limite,created_at,last_seen,activo,captures_used_today,last_capture_date"
+    ).eq("id", user_id).single().execute()
+
+    if not user_result.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+
+    logs_result = supabase.table("login_logs").select(
+        "logged_at,ip"
+    ).eq("user_id", user_id).order("logged_at", desc=True).limit(25).execute()
+
+    user = user_result.data
+    limite = user.get("captures_limite") or 0
+    remaining = user.get("captures_remaining") or 0
+    captures_used_total = max(0, limite - remaining)
+
+    return {
+        "user": user,
+        "captures_used_total": captures_used_total,
+        "captures_used_today": user.get("captures_used_today") or 0,
+        "login_logs": logs_result.data,
+    }
 
 
 @router.post("/users", status_code=201, dependencies=[Depends(_require_admin)])

@@ -1,6 +1,7 @@
 import os
 import base64
 import anthropic
+from datetime import datetime, date, timezone
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from schemas import AnalyzeResponse, StatusResponse
@@ -88,10 +89,24 @@ async def analyze(
         (block.text for block in message.content if block.type == "text"), ""
     )
 
+    now_utc = datetime.now(timezone.utc)
+    today = now_utc.date()
+
+    last_date_str = current_user.get("last_capture_date")
+    try:
+        last_date = date.fromisoformat(last_date_str) if last_date_str else None
+    except (ValueError, TypeError):
+        last_date = None
+
+    used_today = ((current_user.get("captures_used_today") or 0) + 1) if last_date == today else 1
     new_count = current_user["captures_remaining"] - 1
-    supabase.table("users").update({"captures_remaining": new_count}).eq(
-        "id", current_user["id"]
-    ).execute()
+
+    supabase.table("users").update({
+        "captures_remaining": new_count,
+        "last_seen": now_utc.isoformat(),
+        "captures_used_today": used_today,
+        "last_capture_date": today.isoformat(),
+    }).eq("id", current_user["id"]).execute()
 
     return {"answer": answer, "captures_remaining": new_count}
 

@@ -601,3 +601,120 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance: none; }
   .users-table td:nth-child(2) { display: none; }
   .field-row { grid-template-columns: 1fr; }
 }
+
+/* ── Badge: activo ahora ─────────────────────────────────────────────────── */
+.badge-online {
+  background: rgba(0,212,170,0.12);
+  color: var(--success);
+  border: 1px solid rgba(0,212,170,0.45);
+  animation: badge-glow 2s ease-in-out infinite;
+}
+@keyframes badge-glow {
+  0%, 100% { border-color: rgba(0,212,170,0.45); }
+  50%       { border-color: rgba(0,212,170,0.9); }
+}
+
+/* ── Acciones: botones de suspender/activar rápido ───────────────────────── */
+.btn-icon.suspend-btn:hover  { border-color: var(--warning); color: var(--warning); background: rgba(245,166,35,0.08); }
+.btn-icon.activate-btn:hover { border-color: var(--success); color: var(--success); background: rgba(0,212,170,0.08); }
+.col-actions { width: 140px !important; }
+
+/* ── Modal detalle ───────────────────────────────────────────────────────── */
+.modal-detail-card { max-width: 660px; }
+
+.detail-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.detail-stat {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.detail-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: monospace;
+  line-height: 1;
+}
+.detail-stat-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.3;
+}
+
+.detail-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+
+/* ── Tabla de login logs ─────────────────────────────────────────────────── */
+.login-log-wrapper {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.login-log-wrapper::-webkit-scrollbar { width: 4px; }
+.login-log-wrapper::-webkit-scrollbar-track { background: transparent; }
+.login-log-wrapper::-webkit-scrollbar-thumb { background: rgba(124,111,255,0.3); border-radius: 2px; }
+
+.login-log-table { width: 100%; border-collapse: collapse; }
+.login-log-table thead th {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 14px;
+  text-align: left;
+  background: rgba(255,255,255,0.025);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.login-log-table tbody tr { border-bottom: 1px solid rgba(124,111,255,0.05); }
+.login-log-table tbody tr:last-child { border-bottom: none; }
+.login-log-table tbody tr:hover { background: rgba(124,111,255,0.03); }
+.login-log-table td {
+  padding: 7px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.ip-code {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--accent-h);
+  background: rgba(124,111,255,0.08);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* ── Footer del modal detalle ────────────────────────────────────────────── */
+.detail-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 18px;
+}
+
+@media (max-width: 700px) {
+  .detail-stats { grid-template-columns: repeat(2, 1fr); }
+  .modal-detail-card { max-width: 100%; }
+}
