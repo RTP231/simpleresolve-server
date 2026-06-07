@@ -40,3 +40,8 @@ async def login(body: LoginRequest):
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/verify", status_code=status.HTTP_200_OK)
+async def verify(current_user: dict = Depends(get_current_user)):
+    return {"valid": True}
