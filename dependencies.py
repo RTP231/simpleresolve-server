@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
@@ -24,4 +25,25 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no encontrado",
         )
-    return result.data
+
+    user = result.data
+
+    if not user.get("activo", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cuenta bloqueada",
+        )
+
+    fecha = user.get("fecha_vencimiento")
+    if fecha:
+        try:
+            exp = datetime.fromisoformat(fecha.replace("Z", "+00:00"))
+            if exp < datetime.now(timezone.utc):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cuenta vencida",
+                )
+        except (ValueError, AttributeError):
+            pass
+
+    return user
