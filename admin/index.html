@@ -28,21 +28,20 @@
       <div id="step-totp" class="hidden">
         <button id="btn-back" class="btn-link back-btn">← Volver</button>
 
-        <!-- QR (solo primera vez) -->
+        <!-- Código secreto TOTP (solo primera vez, cuando ADMIN_TOTP_SECRET está vacío) -->
         <div id="qr-setup" class="hidden">
           <p class="step-label qr-title">Primera configuración</p>
-          <p class="step-hint">Escanea con <strong>Google Authenticator</strong> para vincular tu cuenta.</p>
-          <div class="qr-wrapper">
-            <canvas id="qr-canvas"></canvas>
-          </div>
+          <p class="step-hint">
+            Abre <strong>Google Authenticator</strong> → <strong>+</strong> →
+            <strong>Ingresar clave</strong> → pega este código:
+          </p>
           <div class="secret-box">
-            <span class="secret-label">Clave manual:</span>
             <code id="totp-secret-text"></code>
             <button class="btn-copy" onclick="copySecret()" title="Copiar">⎘</button>
           </div>
           <p class="secret-hint">
-            Guarda también como variable de entorno:<br>
-            <code>ADMIN_TOTP_SECRET=<span id="secret-env"></span></code>
+            Luego guárdalo en Railway como variable de entorno
+            <code>ADMIN_TOTP_SECRET</code> y no volverá a aparecer.
           </p>
           <hr class="divider">
         </div>
@@ -185,7 +184,6 @@
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

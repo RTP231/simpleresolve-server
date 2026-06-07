@@ -129,11 +129,9 @@ async function submitPassword() {
     _step1Token = data.step1_token;
 
     if (data.totp_setup) {
-      // Primera vez: mostrar QR
-      $('qr-setup').classList.remove('hidden');
+      // Primera vez: mostrar código secreto en texto plano
       $('totp-secret-text').textContent = data.totp_secret;
-      $('secret-env').textContent = data.totp_secret;
-      QRCode.toCanvas($('qr-canvas'), data.totp_uri, { width: 192, margin: 1 });
+      $('qr-setup').classList.remove('hidden');
     } else {
       $('qr-setup').classList.add('hidden');
     }
