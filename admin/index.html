@@ -28,20 +28,26 @@
       <div id="step-totp" class="hidden">
         <button id="btn-back" class="btn-link back-btn">← Volver</button>
 
-        <!-- Código secreto TOTP (solo primera vez, cuando ADMIN_TOTP_SECRET está vacío) -->
+        <!-- QR TOTP (solo primera vez, cuando ADMIN_TOTP_SECRET está vacío) -->
         <div id="qr-setup" class="hidden">
           <p class="step-label qr-title">Primera configuración</p>
           <p class="step-hint">
             Abre <strong>Google Authenticator</strong> → <strong>+</strong> →
-            <strong>Ingresar clave</strong> → pega este código:
+            <strong>Escanear código QR</strong>:
           </p>
-          <div class="secret-box">
-            <code id="totp-secret-text"></code>
-            <button class="btn-copy" onclick="copySecret()" title="Copiar">⎘</button>
+          <div id="qr-canvas" class="qr-wrapper"></div>
+          <button class="btn-link" id="btn-show-secret" onclick="toggleSecret()"
+                  style="display:block;width:100%;text-align:center;font-size:11px;color:var(--muted);margin:6px 0;">
+            ¿No puedes escanear? Ver código manual
+          </button>
+          <div id="qr-secret-fallback" class="hidden">
+            <div class="secret-box">
+              <code id="totp-secret-text"></code>
+              <button class="btn-copy" onclick="copySecret()" title="Copiar">⎘</button>
+            </div>
           </div>
           <p class="secret-hint">
-            Luego guárdalo en Railway como variable de entorno
-            <code>ADMIN_TOTP_SECRET</code> y no volverá a aparecer.
+            Guárdalo en Railway como <code>ADMIN_TOTP_SECRET</code> y no volverá a aparecer.
           </p>
           <hr class="divider">
         </div>
@@ -184,6 +190,9 @@
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+          integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSi2jPQkSAimMmENwkjIXiHGLj2Gi22eNXaA=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="app.js"></script>
 </body>
 </html>

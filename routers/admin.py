@@ -142,7 +142,7 @@ async def auth_password(body: PasswordBody, request: Request):
     if is_new:
         totp = pyotp.TOTP(secret)
         response["totp_uri"] = totp.provisioning_uri(
-            name="admin@simpleresolve", issuer_name="SimpleResolve Admin"
+            name="Admin", issuer_name="SimpleResolve"
         )
         response["totp_secret"] = secret
 
