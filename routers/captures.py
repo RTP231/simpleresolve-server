@@ -3,7 +3,7 @@ import base64
 import anthropic
 from datetime import datetime, date, timezone
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from schemas import AnalyzeResponse, StatusResponse
 from database import supabase
 from dependencies import get_current_user
@@ -27,6 +27,7 @@ def _get_claude():
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(
+    request: Request,
     image: UploadFile = File(...),
     prompt: str = Form(default="Analiza esta imagen y proporciona una respuesta detallada."),
     current_user: dict = Depends(get_current_user),
@@ -41,7 +42,7 @@ async def analyze(
     if media_type not in ALLOWED_MEDIA_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Tipo de imagen no soportado: {media_type}. Usa JPEG, PNG, GIF o WebP.",
+            detail=f"Tipo de imagen no soportado: {media_type}.",
         )
 
     image_bytes = await image.read()
@@ -56,41 +57,26 @@ async def analyze(
             messages=[{
                 "role": "user",
                 "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": image_b64,
-                        },
-                    },
+                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
                     {"type": "text", "text": prompt},
                 ],
             }],
         ) as stream:
             message = stream.get_final_message()
     except anthropic.AuthenticationError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="ANTHROPIC_API_KEY inválida o revocada. Revisa la variable en Railway.",
-        )
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY inválida o revocada.")
     except anthropic.APIConnectionError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"No se pudo conectar a la API de Anthropic: {exc}",
-        )
+        raise HTTPException(status_code=503, detail=f"No se pudo conectar a Anthropic: {exc}")
     except anthropic.APIError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Error en la API de Claude: {exc.message}",
-        )
+        raise HTTPException(status_code=502, detail=f"Error en la API de Claude: {exc.message}")
 
-    answer = next(
-        (block.text for block in message.content if block.type == "text"), ""
-    )
+    answer = next((block.text for block in message.content if block.type == "text"), "")
 
     now_utc = datetime.now(timezone.utc)
     today = now_utc.date()
+    forwarded = request.headers.get("X-Forwarded-For")
+    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host or "unknown")
+    app_version = request.headers.get("X-App-Version", "unknown")
 
     last_date_str = current_user.get("last_capture_date")
     try:
@@ -107,6 +93,17 @@ async def analyze(
         "captures_used_today": used_today,
         "last_capture_date": today.isoformat(),
     }).eq("id", current_user["id"]).execute()
+
+    try:
+        supabase.table("usage_logs").insert({
+            "user_id": current_user["id"],
+            "event_type": "capture",
+            "timestamp": now_utc.isoformat(),
+            "ip": ip,
+            "app_version": app_version,
+        }).execute()
+    except Exception:
+        pass
 
     return {"answer": answer, "captures_remaining": new_count}
 

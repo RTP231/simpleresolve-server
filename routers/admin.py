@@ -121,6 +121,14 @@ class UpdateUserBody(BaseModel):
     activo: bool | None = None
 
 
+class NotesBody(BaseModel):
+    notes: str
+
+
+class PriceBody(BaseModel):
+    price: float
+
+
 # ── Endpoints de autenticación ────────────────────────────────────────────────
 @router.post("/auth/password")
 async def auth_password(body: PasswordBody, request: Request):
@@ -171,6 +179,68 @@ async def auth_totp(body: TotpBody, request: Request):
 
 
 # ── Gestión de usuarios ───────────────────────────────────────────────────────
+@router.get("/stats", dependencies=[Depends(_require_admin)])
+async def get_stats():
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+    yesterday = now - timedelta(hours=24)
+
+    # Capturas por día (últimos 7 días)
+    cap_logs = supabase.table("usage_logs").select("timestamp").eq(
+        "event_type", "capture"
+    ).gte("timestamp", seven_days_ago.isoformat()).execute()
+
+    daily: dict[str, int] = {}
+    for i in range(7):
+        day = (now - timedelta(days=6 - i)).strftime("%Y-%m-%d")
+        daily[day] = 0
+    for log in cap_logs.data or []:
+        day = (log.get("timestamp") or "")[:10]
+        if day in daily:
+            daily[day] += 1
+
+    # Actividad últimas 24h
+    events_24h = supabase.table("usage_logs").select(
+        "event_type,user_id"
+    ).gte("timestamp", yesterday.isoformat()).execute()
+    ev = events_24h.data or []
+    opens_24h   = sum(1 for e in ev if e["event_type"] == "app_open")
+    caps_24h    = sum(1 for e in ev if e["event_type"] == "capture")
+    unique_24h  = len(set(e["user_id"] for e in ev if e.get("user_id")))
+
+    # Usuarios activos
+    all_users = supabase.table("users").select("activo,fecha_vencimiento").execute()
+    active_count = sum(
+        1 for u in (all_users.data or [])
+        if u.get("activo", True) and (
+            not u.get("fecha_vencimiento") or
+            u["fecha_vencimiento"] > now.isoformat()
+        )
+    )
+
+    # Precio configurado
+    price_r = supabase.table("admin_config").select("value").eq("key", "price").execute()
+    price = float(price_r.data[0]["value"]) if price_r.data else 0.0
+
+    return {
+        "chart": [{"date": d, "count": c} for d, c in daily.items()],
+        "activity_24h": {"opens": opens_24h, "captures": caps_24h, "unique_users": unique_24h},
+        "active_users": active_count,
+        "price": price,
+        "revenue": round(active_count * price, 2),
+    }
+
+
+@router.post("/config/price", dependencies=[Depends(_require_admin)])
+async def set_price(body: PriceBody):
+    existing = supabase.table("admin_config").select("key").eq("key", "price").execute()
+    if existing.data:
+        supabase.table("admin_config").update({"value": str(body.price)}).eq("key", "price").execute()
+    else:
+        supabase.table("admin_config").insert({"key": "price", "value": str(body.price)}).execute()
+    return {"price": body.price}
+
+
 @router.get("/users", dependencies=[Depends(_require_admin)])
 async def list_users():
     result = supabase.table("users").select(
@@ -182,27 +252,69 @@ async def list_users():
 @router.get("/users/{user_id}/details", dependencies=[Depends(_require_admin)])
 async def user_details(user_id: str):
     user_result = supabase.table("users").select(
-        "id,email,captures_remaining,captures_limite,created_at,last_seen,activo,captures_used_today,last_capture_date"
+        "id,email,captures_remaining,captures_limite,created_at,last_seen,activo,"
+        "captures_used_today,last_capture_date,notes,token_version"
     ).eq("id", user_id).single().execute()
 
     if not user_result.data:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
 
-    logs_result = supabase.table("login_logs").select(
-        "logged_at,ip"
-    ).eq("user_id", user_id).order("logged_at", desc=True).limit(25).execute()
-
     user = user_result.data
-    limite = user.get("captures_limite") or 0
+
+    login_logs = supabase.table("login_logs").select(
+        "logged_at,ip"
+    ).eq("user_id", user_id).order("logged_at", desc=True).limit(10).execute()
+
+    timeline = supabase.table("usage_logs").select(
+        "event_type,timestamp,ip,app_version"
+    ).eq("user_id", user_id).order("timestamp", desc=True).limit(20).execute()
+
+    failed = supabase.table("failed_logins").select(
+        "attempted_at,ip"
+    ).eq("email", user.get("email", "")).order("attempted_at", desc=True).limit(5).execute()
+
+    # Anomalía IP: 2 IPs distintas en los últimos 10 minutos
+    now = datetime.now(timezone.utc)
+    recent_logs = [
+        l for l in (login_logs.data or [])
+        if l.get("logged_at") and
+        (now - datetime.fromisoformat(l["logged_at"].replace("Z", "+00:00"))).seconds < 600
+    ]
+    ip_anomaly = len(set(l["ip"] for l in recent_logs)) > 1
+
+    limite    = user.get("captures_limite") or 0
     remaining = user.get("captures_remaining") or 0
-    captures_used_total = max(0, limite - remaining)
 
     return {
         "user": user,
-        "captures_used_total": captures_used_total,
+        "captures_used_total": max(0, limite - remaining),
         "captures_used_today": user.get("captures_used_today") or 0,
-        "login_logs": logs_result.data,
+        "login_logs": login_logs.data,
+        "timeline": timeline.data,
+        "failed_logins": failed.data,
+        "failed_count": len(failed.data or []),
+        "ip_anomaly": ip_anomaly,
     }
+
+
+@router.patch("/users/{user_id}/notes", dependencies=[Depends(_require_admin)])
+async def update_notes(user_id: str, body: NotesBody):
+    result = supabase.table("users").update(
+        {"notes": body.notes}
+    ).eq("id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/force-logout", dependencies=[Depends(_require_admin)])
+async def force_logout(user_id: str):
+    user_r = supabase.table("users").select("token_version").eq("id", user_id).single().execute()
+    if not user_r.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    new_ver = (user_r.data.get("token_version") or 1) + 1
+    supabase.table("users").update({"token_version": new_ver}).eq("id", user_id).execute()
+    return {"ok": True, "token_version": new_ver}
 
 
 @router.post("/users", status_code=201, dependencies=[Depends(_require_admin)])
