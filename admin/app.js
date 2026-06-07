@@ -1,9 +1,7 @@
 'use strict';
 
 // ── Configuración ─────────────────────────────────────────────────────────────
-const API_BASE = window.location.protocol === 'file:'
-  ? 'https://simpleresolve-server-production.up.railway.app'
-  : '';
+const API_BASE = 'https://simpleresolve-server-production.up.railway.app';
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 let _step1Token   = null;
