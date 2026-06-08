@@ -138,7 +138,8 @@ class WelcomeEmailBody(BaseModel):
 
 
 class ReloadCapturesBody(BaseModel):
-    amount: int
+    amount:         int
+    email_destino:  EmailStr | None = None  # email real del cliente (distinto al email de cuenta)
 
 
 class CreateWithWelcomeBody(BaseModel):
@@ -880,18 +881,25 @@ async def reload_captures(user_id: str, body: ReloadCapturesBody):
         "captures_total_after": new_remaining,
     }).execute()
 
+    email_sent  = False
+    email_error = None
+    to_addr     = body.email_destino if getattr(body, "email_destino", None) else user["email"]
+    print(f"[reload_captures] Enviando email a: {to_addr!r} | capturas: +{body.amount} → {new_remaining}", flush=True)
     try:
-        html = _reload_html(user["email"], body.amount, new_remaining)
+        html     = _reload_html(to_addr, body.amount, new_remaining)
         brevo_id = await _send_resend_email(
-            to=user["email"],
-            subject=f"SimpleResolve · Recarga de {body.amount} capturas",
-            html=html,
+            to      = to_addr,
+            subject = f"SimpleResolve · Recarga de {body.amount} capturas",
+            html    = html,
         )
         _log_email(user_id, "reload", brevo_id, {"amount": body.amount, "total_after": new_remaining})
-    except HTTPException:
-        pass  # La recarga se guardó; el email falla silenciosamente
+        email_sent = True
+        print(f"[reload_captures] Email enviado OK. messageId={brevo_id!r}", flush=True)
+    except Exception as exc:
+        email_error = str(exc)
+        print(f"[reload_captures] ERROR al enviar email: {email_error}", flush=True)
 
-    return {"ok": True, "new_remaining": new_remaining}
+    return {"ok": True, "new_remaining": new_remaining, "email_sent": email_sent, "email_error": email_error}
 
 
 @router.get("/users/{user_id}/reload-history", dependencies=[Depends(_require_admin)])
