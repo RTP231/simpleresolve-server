@@ -157,7 +157,7 @@ async def _send_resend_email(to: str, subject: str, html: str) -> str:
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "RESEND_API_KEY no configurada en Railway. Sigue las instrucciones del panel para agregarla.",
         )
-    from_addr = os.environ.get("RESEND_FROM_EMAIL", "SimpleResolve <no-reply@simpleresolve.app>")
+    from_addr = os.environ.get("RESEND_FROM_EMAIL", "SimpleResolve <onboarding@resend.dev>")
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             "https://api.resend.com/emails",
