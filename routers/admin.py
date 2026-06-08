@@ -169,9 +169,7 @@ async def _send_resend_email(to: str, subject: str, html: str) -> str:
     msg.attach(MIMEText(html, "html", "utf-8"))
 
     def _do_send():
-        with smtplib.SMTP("smtp-relay.brevo.com", 587, timeout=20) as server:
-            server.ehlo()
-            server.starttls()
+        with smtplib.SMTP_SSL("smtp-relay.brevo.com", 465, timeout=20) as server:
             server.login("ade89f001@smtp-brevo.com", smtp_password)
             server.sendmail("simpleresolve@gmail.com", to, msg.as_string())
 
