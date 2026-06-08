@@ -198,54 +198,9 @@ $('btn-logout').addEventListener('click', () => {
 //  DASHBOARD
 // ══════════════════════════════════════════════════════════════
 async function loadDashboard() {
-  await Promise.all([loadUsers(), loadStats(), loadAnthropicUsage()]);
+  await Promise.all([loadUsers(), loadStats()]);
 }
 
-async function loadAnthropicUsage() {
-  const card = $('openai-balance-card');
-  try {
-    const d = await apiFetch('/admin/anthropic-usage');
-    const cost         = d.cost_usd      || 0;
-    const totalTokens  = d.total_tokens  || 0;
-    const inputTokens  = d.input_tokens  || 0;
-    const outputTokens = d.output_tokens || 0;
-    const isHigh       = cost > 50;
-    const pct          = Math.min(100, (cost / 100) * 100);
-
-    const valEl = $('oai-available');
-    if (cost > 0) {
-      valEl.textContent = `$${cost.toFixed(2)}`;
-    } else {
-      valEl.textContent = totalTokens > 0
-        ? `${(totalTokens / 1_000_000).toFixed(2)}M`
-        : '—';
-    }
-    valEl.className = `oai-value${isHigh ? ' danger' : ''}`;
-
-    const barEl = $('oai-bar-fill');
-    barEl.style.width = `${pct.toFixed(1)}%`;
-    barEl.className   = `oai-bar-fill${isHigh ? ' danger' : ''}`;
-
-    if (totalTokens > 0) {
-      const fmt = n => n >= 1_000_000
-        ? `${(n/1_000_000).toFixed(2)}M`
-        : n >= 1_000 ? `${(n/1_000).toFixed(1)}k` : String(n);
-      $('oai-used-label').textContent =
-        `${fmt(inputTokens)} entrada · ${fmt(outputTokens)} salida`;
-    } else {
-      $('oai-used-label').textContent = 'Sin datos de tokens';
-    }
-
-    if (isHigh) $('oai-alert').classList.remove('hidden');
-  } catch (err) {
-    const errEl = $('oai-error');
-    errEl.textContent = err.detail || 'No se pudo obtener el uso.';
-    errEl.classList.remove('hidden');
-    $('oai-used-label').textContent = '';
-  } finally {
-    card.classList.remove('oai-loading');
-  }
-}
 
 async function loadStats() {
   try {

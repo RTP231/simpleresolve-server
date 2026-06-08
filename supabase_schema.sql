@@ -39,3 +39,20 @@ CREATE TABLE IF NOT EXISTS admin_config (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- ── Email de bienvenida (tracking) ────────────────────────────────────────────
+-- Ejecutar estas líneas si la tabla users ya existe:
+ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_sent_at   TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_opened_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_resend_id TEXT;
+
+-- ── Historial de recargas de capturas ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS capture_reloads (
+    id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id              UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount               INTEGER     NOT NULL,
+    captures_total_after INTEGER     NOT NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS capture_reloads_user_idx ON capture_reloads(user_id);

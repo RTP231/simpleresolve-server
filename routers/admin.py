@@ -130,6 +130,185 @@ class PriceBody(BaseModel):
     price: float
 
 
+class WelcomeEmailBody(BaseModel):
+    email_destino: EmailStr
+    temp_password: str
+
+
+class ReloadCapturesBody(BaseModel):
+    amount: int
+
+
+# ── Email helpers ─────────────────────────────────────────────────────────────
+async def _send_resend_email(to: str, subject: str, html: str) -> str:
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "RESEND_API_KEY no configurada en Railway. Sigue las instrucciones del panel para agregarla.",
+        )
+    from_addr = os.environ.get("RESEND_FROM_EMAIL", "SimpleResolve <no-reply@simpleresolve.app>")
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": from_addr, "to": [to], "subject": subject, "html": html},
+        )
+    if not resp.is_success:
+        try:
+            err_msg = resp.json().get("message", resp.text[:200])
+        except Exception:
+            err_msg = resp.text[:200]
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Error Resend ({resp.status_code}): {err_msg}")
+    return resp.json().get("id", "")
+
+
+def _fmt_dt(iso_str: str | None) -> str:
+    if not iso_str:
+        return datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return dt.strftime("%d/%m/%Y %H:%M UTC")
+    except Exception:
+        return datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+
+
+def _welcome_html(email: str, password: str, purchase_iso: str | None) -> str:
+    download_url  = os.environ.get("DOWNLOAD_URL", "#")
+    purchase_str  = _fmt_dt(purchase_iso)
+    sent_str      = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bienvenido a SimpleResolve</title></head>
+<body style="margin:0;padding:0;background:#07060f;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#07060f;padding:40px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+  <tr><td style="background:linear-gradient(135deg,#7c6fff,#5a4fcf);border-radius:14px 14px 0 0;padding:30px 36px;text-align:center;">
+    <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">SimpleResolve</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:1.2px;text-transform:uppercase;">Asistente inteligente para exámenes</div>
+  </td></tr>
+  <tr><td style="background:#0d0b1e;border:1px solid rgba(124,111,255,0.2);border-top:none;border-radius:0 0 14px 14px;padding:32px 36px;">
+    <h2 style="color:#eaeaf5;font-size:19px;font-weight:700;margin:0 0 8px;">&#x1F44B; ¡Bienvenido a SimpleResolve!</h2>
+    <p style="color:#9898b8;font-size:14px;line-height:1.65;margin:0 0 26px;">Tu acceso ha sido activado. Aquí están tus credenciales para iniciar sesión:</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(124,111,255,0.09);border:1px solid rgba(124,111,255,0.22);border-radius:10px;margin-bottom:26px;">
+    <tr><td style="padding:22px 24px;">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Email de acceso</div>
+        <div style="font-size:15px;color:#eaeaf5;font-weight:600;">{email}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Contraseña temporal</div>
+        <div style="display:inline-block;background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.3);border-radius:7px;padding:8px 16px;">
+          <span style="font-size:16px;color:#9d97ff;font-weight:700;font-family:'Courier New',monospace;letter-spacing:2px;">{password}</span>
+        </div>
+      </div>
+    </td></tr>
+    </table>
+    <h3 style="color:#eaeaf5;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 14px;">Cómo empezar</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
+      <tr><td style="padding:9px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">01</span>
+        <span style="color:#9898b8;font-size:13px;">Descarga e instala la aplicación</span>
+      </td></tr>
+      <tr><td style="padding:9px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">02</span>
+        <span style="color:#9898b8;font-size:13px;">Inicia sesión con tu email y contraseña</span>
+      </td></tr>
+      <tr><td style="padding:9px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">03</span>
+        <span style="color:#9898b8;font-size:13px;">Presiona <strong style="color:#eaeaf5;font-family:'Courier New',monospace;">Ctrl+Shift+S</strong> para capturar cualquier pregunta</span>
+      </td></tr>
+      <tr><td style="padding:9px 0;">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">04</span>
+        <span style="color:#9898b8;font-size:13px;">Recibe la respuesta con IA en segundos</span>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
+    <tr><td align="center">
+      <a href="{download_url}" style="display:inline-block;background:linear-gradient(135deg,#7c6fff,#5a4fcf);color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 36px;border-radius:8px;">Descargar SimpleResolve &#x2192;</a>
+    </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(124,111,255,0.1);border-radius:8px;margin-bottom:24px;">
+    <tr><td style="padding:14px 18px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:12px;color:#55547a;padding-bottom:6px;">Fecha de compra / activación</td>
+          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;padding-bottom:6px;">{purchase_str}</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px;color:#55547a;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">Email de bienvenida enviado</td>
+          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">{sent_str}</td>
+        </tr>
+      </table>
+    </td></tr>
+    </table>
+    <div style="background:rgba(124,111,255,0.06);border:1px solid rgba(124,111,255,0.14);border-radius:8px;padding:15px 18px;margin-bottom:22px;">
+      <div style="font-size:10px;font-weight:700;color:#7c6fff;text-transform:uppercase;letter-spacing:1px;margin-bottom:9px;">Términos de uso</div>
+      <p style="font-size:12px;color:#9898b8;line-height:1.7;margin:0;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal y educativo; (2) queda prohibido compartir credenciales o cuentas con terceros; (3) el uso fuera de los términos resultará en suspensión inmediata sin reembolso; (4) cada análisis de captura descuenta del saldo disponible en tu cuenta.</p>
+    </div>
+    <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">¿Problemas con tu acceso? Responde a este correo o contacta al soporte.<br>Generado automáticamente por SimpleResolve.</p>
+  </td></tr>
+  <tr><td style="padding:14px 0;text-align:center;">
+    <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>"""
+
+
+def _reload_html(email: str, amount: int, total_after: int) -> str:
+    reload_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Capturas recargadas – SimpleResolve</title></head>
+<body style="margin:0;padding:0;background:#07060f;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#07060f;padding:40px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+  <tr><td style="background:linear-gradient(135deg,#7c6fff,#5a4fcf);border-radius:14px 14px 0 0;padding:30px 36px;text-align:center;">
+    <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">SimpleResolve</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:1.2px;text-transform:uppercase;">Recarga de capturas</div>
+  </td></tr>
+  <tr><td style="background:#0d0b1e;border:1px solid rgba(124,111,255,0.2);border-top:none;border-radius:0 0 14px 14px;padding:32px 36px;">
+    <h2 style="color:#eaeaf5;font-size:19px;font-weight:700;margin:0 0 8px;">&#x26A1; ¡Capturas recargadas!</h2>
+    <p style="color:#9898b8;font-size:14px;line-height:1.65;margin:0 0 26px;">Hola <strong style="color:#eaeaf5;">{email}</strong>, tu saldo de capturas ha sido actualizado exitosamente.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
+    <tr>
+      <td width="48%" style="background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);border-radius:10px;padding:20px;text-align:center;vertical-align:middle;">
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Capturas agregadas</div>
+        <div style="font-size:40px;font-weight:800;color:#00d4aa;line-height:1;">+{amount}</div>
+      </td>
+      <td width="4%"></td>
+      <td width="48%" style="background:rgba(124,111,255,0.08);border:1px solid rgba(124,111,255,0.2);border-radius:10px;padding:20px;text-align:center;vertical-align:middle;">
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Total disponible</div>
+        <div style="font-size:40px;font-weight:800;color:#9d97ff;line-height:1;">{total_after}</div>
+      </td>
+    </tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(124,111,255,0.1);border-radius:8px;margin-bottom:24px;">
+    <tr><td style="padding:14px 18px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:12px;color:#55547a;">Fecha y hora de recarga</td>
+          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;">{reload_str}</td>
+        </tr>
+      </table>
+    </td></tr>
+    </table>
+    <p style="font-size:13px;color:#9898b8;text-align:center;line-height:1.6;margin:0 0 22px;">Tus capturas ya están disponibles. Abre SimpleResolve y sigue resolviendo.</p>
+    <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">Generado automáticamente por SimpleResolve.</p>
+  </td></tr>
+  <tr><td style="padding:14px 0;text-align:center;">
+    <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>"""
+
+
 # ── Endpoints de autenticación ────────────────────────────────────────────────
 @router.post("/auth/password")
 async def auth_password(body: PasswordBody, request: Request):
@@ -279,7 +458,8 @@ async def set_price(body: PriceBody):
 @router.get("/users", dependencies=[Depends(_require_admin)])
 async def list_users():
     result = supabase.table("users").select(
-        "id,email,captures_remaining,captures_limite,fecha_vencimiento,activo,created_at,last_seen,captures_used_today"
+        "id,email,captures_remaining,captures_limite,fecha_vencimiento,activo,created_at,last_seen,"
+        "captures_used_today,welcome_sent_at,welcome_opened_at"
     ).order("created_at", desc=True).execute()
     return result.data
 
@@ -410,4 +590,90 @@ async def delete_user(user_id: str):
     result = supabase.table("users").delete().eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    return {"ok": True}
+
+
+# ── Email: bienvenida ─────────────────────────────────────────────────────────
+@router.post("/users/{user_id}/send-welcome", dependencies=[Depends(_require_admin)])
+async def send_welcome(user_id: str, body: WelcomeEmailBody):
+    user_r = supabase.table("users").select("id,email,created_at").eq("id", user_id).single().execute()
+    if not user_r.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    user = user_r.data
+
+    html = _welcome_html(body.email_destino, body.temp_password, user.get("created_at"))
+    email_id = await _send_resend_email(
+        to=body.email_destino,
+        subject="¡Bienvenido a SimpleResolve! Tus credenciales de acceso",
+        html=html,
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    supabase.table("users").update({
+        "welcome_sent_at": now,
+        "welcome_resend_id": email_id,
+        "welcome_opened_at": None,
+    }).eq("id", user_id).execute()
+
+    return {"ok": True, "sent_at": now}
+
+
+# ── Recargas de capturas ──────────────────────────────────────────────────────
+@router.post("/users/{user_id}/reload-captures", dependencies=[Depends(_require_admin)])
+async def reload_captures(user_id: str, body: ReloadCapturesBody):
+    if body.amount < 1:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La cantidad debe ser al menos 1.")
+
+    user_r = supabase.table("users").select("id,email,captures_remaining").eq("id", user_id).single().execute()
+    if not user_r.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    user = user_r.data
+
+    new_remaining = (user.get("captures_remaining") or 0) + body.amount
+    supabase.table("users").update({"captures_remaining": new_remaining}).eq("id", user_id).execute()
+    supabase.table("capture_reloads").insert({
+        "user_id": user_id,
+        "amount": body.amount,
+        "captures_total_after": new_remaining,
+    }).execute()
+
+    try:
+        html = _reload_html(user["email"], body.amount, new_remaining)
+        await _send_resend_email(
+            to=user["email"],
+            subject=f"SimpleResolve · Recarga de {body.amount} capturas",
+            html=html,
+        )
+    except HTTPException:
+        pass  # La recarga se guardó; el email falla silenciosamente
+
+    return {"ok": True, "new_remaining": new_remaining}
+
+
+@router.get("/users/{user_id}/reload-history", dependencies=[Depends(_require_admin)])
+async def reload_history(user_id: str):
+    result = supabase.table("capture_reloads").select(
+        "id,amount,captures_total_after,created_at"
+    ).eq("user_id", user_id).order("created_at", desc=True).limit(50).execute()
+    return result.data or []
+
+
+# ── Webhook Resend (email.opened) ─────────────────────────────────────────────
+@router.post("/email/webhook")
+async def email_webhook(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": True}
+
+    if body.get("type") == "email.opened":
+        email_id = (body.get("data") or {}).get("email_id")
+        if email_id:
+            try:
+                supabase.table("users").update({
+                    "welcome_opened_at": datetime.now(timezone.utc).isoformat()
+                }).eq("welcome_resend_id", email_id).execute()
+            except Exception:
+                pass
+
     return {"ok": True}
