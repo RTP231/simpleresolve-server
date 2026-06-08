@@ -404,6 +404,20 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════ MODAL: Preview de correo ═══ -->
+  <div id="modal-email-preview" class="modal-overlay hidden" onclick="overlayClose(event,'modal-email-preview')">
+    <div class="modal-card modal-xlarge preview-modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>Vista previa del correo</h3>
+          <span id="preview-subject" class="preview-subject-text"></span>
+        </div>
+        <button class="btn-close" onclick="closeModal('modal-email-preview')">✕</button>
+      </div>
+      <iframe id="preview-iframe" class="preview-iframe" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 

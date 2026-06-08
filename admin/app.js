@@ -683,17 +683,21 @@ async function openUserDetail(id) {
   $('detail-content').innerHTML = '<p class="history-empty">Cargando…</p>';
   showModal('modal-user-detail');
   try {
-    const data = await apiFetch(`/admin/users/${id}/details`);
-    renderUserDetail(data);
+    const [data, emailLogs] = await Promise.all([
+      apiFetch(`/admin/users/${id}/details`),
+      apiFetch(`/admin/users/${id}/email-history`),
+    ]);
+    renderUserDetail(data, emailLogs);
   } catch (_) {
     $('detail-content').innerHTML = '<p class="history-empty" style="color:var(--danger)">Error al cargar detalle.</p>';
   }
 }
 
-function renderUserDetail(data) {
+function renderUserDetail(data, emailLogs) {
   const user     = data.user || {};
   const timeline = data.timeline || [];
   const logins   = data.login_logs || [];
+  const logs     = emailLogs || [];
 
   $('detail-email-sub').textContent = user.email || '';
 
@@ -704,14 +708,34 @@ function renderUserDetail(data) {
 
   function fmtDate(iso) {
     if (!iso) return '—';
-    const dt = new Date(iso);
-    return dt.toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric'});
+    return new Date(iso).toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric'});
   }
   function fmtTime(iso) {
     if (!iso) return '—';
     return new Date(iso).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   }
 
+  // ── Evidencia de correos ──
+  const typeLabel = { welcome: 'Bienvenida', reload: 'Recarga' };
+  const evidenceRows = logs.length
+    ? logs.map(log => {
+        const m = (typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata) || {};
+        const details = (log.type === 'reload' && m.amount != null)
+          ? `+${m.amount} cap. → ${m.total_after} total`
+          : '—';
+        const typeClass = log.type === 'welcome' ? 'email-type-welcome' : 'email-type-reload';
+        return `<tr>
+          <td><span class="email-type-badge ${typeClass}">${typeLabel[log.type] || log.type}</span></td>
+          <td class="detail-date">${fmtDate(log.sent_at)}</td>
+          <td class="detail-time">${fmtTime(log.sent_at)}</td>
+          <td class="detail-evidence-details">${details}</td>
+          <td><span class="evidence-status-badge">Enviado</span></td>
+          <td><button class="btn btn-ghost evidence-preview-btn" onclick="openEmailPreview('${log.id}')">Ver correo</button></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" class="history-empty" style="text-align:center;padding:12px;">Sin emails enviados aún.</td></tr>';
+
+  // ── Timeline ──
   const timelineRows = timeline.length
     ? timeline.map(e => `<tr>
         <td class="detail-date">${fmtDate(e.timestamp)}</td>
@@ -722,6 +746,7 @@ function renderUserDetail(data) {
       </tr>`).join('')
     : '<tr><td colspan="5" class="history-empty" style="text-align:center;padding:12px;">Sin actividad registrada.</td></tr>';
 
+  // ── Logins ──
   const loginRows = logins.length
     ? logins.map(l => `<tr>
         <td class="detail-date">${fmtDate(l.logged_at)}</td>
@@ -750,6 +775,15 @@ function renderUserDetail(data) {
     </div>
     ${ipWarning}
     <div class="detail-section">
+      <h4 class="history-title">Evidencia de correos enviados</h4>
+      <div class="detail-table-scroll">
+        <table class="history-table">
+          <thead><tr><th>Tipo</th><th>Fecha</th><th>Hora</th><th>Detalles</th><th>Estado</th><th></th></tr></thead>
+          <tbody>${evidenceRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="detail-section">
       <h4 class="history-title">Timeline de actividad (últimas 20)</h4>
       <div class="detail-table-scroll">
         <table class="history-table">
@@ -767,6 +801,20 @@ function renderUserDetail(data) {
         </table>
       </div>
     </div>`;
+}
+
+// ── Modal: preview de correo ──────────────────────────────────────────────────
+async function openEmailPreview(logId) {
+  $('preview-subject').textContent = '';
+  $('preview-iframe').srcdoc = '<html><body style="background:#0f0f1a;color:#888;font-family:Arial,sans-serif;padding:30px;text-align:center;font-size:14px;">Cargando vista previa…</body></html>';
+  showModal('modal-email-preview');
+  try {
+    const data = await apiFetch(`/admin/email-logs/${logId}/preview`);
+    $('preview-subject').textContent = `Asunto: ${data.subject}`;
+    $('preview-iframe').srcdoc = data.html;
+  } catch (_) {
+    $('preview-iframe').srcdoc = '<html><body style="background:#0f0f1a;color:#f87171;font-family:Arial,sans-serif;padding:30px;text-align:center;font-size:14px;">Error al cargar la vista previa.</body></html>';
+  }
 }
 
 // ── Modal: historial de comunicaciones ────────────────────────────────────────

@@ -867,6 +867,46 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance: none; }
 .user-detail-link { cursor: pointer; }
 .user-detail-link:hover { color: var(--accent-h); text-decoration: underline; }
 
+/* ── Evidencia de correos ─────────────────────────────────────────────────── */
+.detail-evidence-details { font-family: monospace; font-size: 11px; color: var(--text-faint); }
+.evidence-status-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: rgba(0,212,170,0.08);
+  color: var(--success);
+  border: 1px solid rgba(0,212,170,0.2);
+}
+.evidence-preview-btn {
+  padding: 3px 10px !important;
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+
+/* ── Preview de correo (modal + iframe) ──────────────────────────────────── */
+.preview-modal-card {
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.preview-subject-text {
+  display: block;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  font-style: italic;
+}
+.preview-iframe {
+  flex: 1;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #0f0f1a;
+  margin-top: 12px;
+}
+
 /* ── Email history modal ─────────────────────────────────────────────────── */
 .email-history-user-label {
   font-size: 13px;

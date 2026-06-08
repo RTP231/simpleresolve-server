@@ -187,10 +187,10 @@ def _fmt_dt(iso_str: str | None) -> str:
         return datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
 
 
-def _welcome_html(email: str, password: str, purchase_iso: str | None) -> str:
+def _welcome_html(email: str, password: str, purchase_iso: str | None, sent_iso: str | None = None) -> str:
     download_url = os.environ.get("DOWNLOAD_URL", "#")
     purchase_str = _fmt_dt(purchase_iso)
-    sent_str     = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    sent_str     = _fmt_dt(sent_iso) if sent_iso else datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -283,8 +283,8 @@ def _welcome_html(email: str, password: str, purchase_iso: str | None) -> str:
 </html>"""
 
 
-def _reload_html(email: str, amount: int, total_after: int) -> str:
-    reload_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+def _reload_html(email: str, amount: int, total_after: int, sent_iso: str | None = None) -> str:
+    reload_str = _fmt_dt(sent_iso) if sent_iso else datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -908,6 +908,38 @@ async def email_history(user_id: str):
         "id,type,sent_at,status,metadata,brevo_id"
     ).eq("user_id", user_id).order("sent_at", desc=True).limit(100).execute()
     return result.data or []
+
+
+@router.get("/email-logs/{log_id}/preview", dependencies=[Depends(_require_admin)])
+async def email_log_preview(log_id: str):
+    log_r = supabase.table("email_logs").select(
+        "id,user_id,type,sent_at,metadata"
+    ).eq("id", log_id).single().execute()
+    if not log_r.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Registro de email no encontrado.")
+    log = log_r.data
+
+    user_r = supabase.table("users").select(
+        "email,captures_limite,fecha_vencimiento,created_at"
+    ).eq("id", log["user_id"]).single().execute()
+    if not user_r.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    user     = user_r.data
+    metadata = log.get("metadata") or {}
+    sent_iso = log.get("sent_at")
+
+    if log["type"] == "welcome":
+        html    = _welcome_html(user["email"], "[ contraseña oculta ]", sent_iso, sent_iso)
+        subject = "¡Bienvenido a SimpleResolve! Tus credenciales de acceso"
+    elif log["type"] == "reload":
+        amount      = metadata.get("amount", 0)
+        total_after = metadata.get("total_after", 0)
+        html    = _reload_html(user["email"], amount, total_after, sent_iso)
+        subject = f"SimpleResolve · Recarga de {amount} capturas"
+    else:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo de email no reconocido.")
+
+    return {"subject": subject, "html": html, "type": log["type"], "sent_at": sent_iso}
 
 
 # ── Webhook Resend (email.opened) ─────────────────────────────────────────────
