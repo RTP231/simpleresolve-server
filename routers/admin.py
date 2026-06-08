@@ -162,7 +162,7 @@ async def _send_resend_email(to: str, subject: str, html: str) -> str:
             "https://api.brevo.com/v3/smtp/email",
             headers={"api-key": api_key, "Content-Type": "application/json"},
             json={
-                "sender":      {"name": "SimpleResolve", "email": "simpleresolve@gmail.com"},
+                "sender":      {"name": "SimpleResolve", "email": "simpleresolveht@gmail.com"},
                 "to":          [{"email": to}],
                 "subject":     subject,
                 "htmlContent": html,
