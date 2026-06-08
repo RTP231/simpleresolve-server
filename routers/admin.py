@@ -151,21 +151,21 @@ class CreateWithWelcomeBody(BaseModel):
 
 # ── Email helpers ─────────────────────────────────────────────────────────────
 async def _send_resend_email(to: str, subject: str, html: str) -> str:
-    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    api_key = os.environ.get("BREVO_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "RESEND_API_KEY no configurada en Railway.",
+            "BREVO_API_KEY no configurada en Railway.",
         )
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"api-key": api_key, "Content-Type": "application/json"},
             json={
-                "from":    "SimpleResolve <onboarding@resend.dev>",
-                "to":      [to],
-                "subject": subject,
-                "html":    html,
+                "sender":      {"name": "SimpleResolve", "email": "simpleresolve@gmail.com"},
+                "to":          [{"email": to}],
+                "subject":     subject,
+                "htmlContent": html,
             },
         )
     if not resp.is_success:
@@ -173,8 +173,8 @@ async def _send_resend_email(to: str, subject: str, html: str) -> str:
             err_msg = resp.json().get("message", resp.text[:200])
         except Exception:
             err_msg = resp.text[:200]
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Error Resend ({resp.status_code}): {err_msg}")
-    return resp.json().get("id", "")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Error Brevo ({resp.status_code}): {err_msg}")
+    return resp.json().get("messageId", "")
 
 
 def _fmt_dt(iso_str: str | None) -> str:
@@ -686,11 +686,11 @@ async def create_user(body: CreateUserBody):
 
 @router.post("/users/create-with-welcome", status_code=201, dependencies=[Depends(_require_admin)])
 async def create_with_welcome(body: CreateWithWelcomeBody, request: Request):
-    # Verificar Resend antes de tocar la DB
-    if not os.environ.get("RESEND_API_KEY", "").strip():
+    # Verificar Brevo antes de tocar la DB
+    if not os.environ.get("BREVO_API_KEY", "").strip():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "RESEND_API_KEY no configurada en Railway.",
+            "BREVO_API_KEY no configurada en Railway.",
         )
 
     # Verificar que el email de cuenta no exista
