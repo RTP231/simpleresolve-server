@@ -418,7 +418,7 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 .captures-text { font-family: monospace; font-size: 12px; color: var(--text-dim); }
 
-.col-actions { width: 148px; text-align: right; }
+.col-actions { width: 178px; text-align: right; }
 .actions-cell { display: flex; gap: 5px; justify-content: flex-end; flex-wrap: nowrap; }
 
 .loading-row, .empty-row {
@@ -800,6 +800,27 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance: none; }
   font-weight: 700;
   font-family: monospace;
 }
+
+/* ── Email history modal ─────────────────────────────────────────────────── */
+.email-history-user-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+  word-break: break-all;
+}
+.email-type-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.email-type-welcome { background: rgba(124,111,255,0.12); color: var(--accent-h); border: 1px solid rgba(124,111,255,0.25); }
+.email-type-reload  { background: rgba(0,212,170,0.08);  color: var(--success);  border: 1px solid rgba(0,212,170,0.2);  }
+.email-date-text  { font-size: 12px; color: var(--text-dim); }
+.email-time-text  { font-size: 10px; color: var(--muted); }
+.email-details-cell { font-family: monospace; font-size: 11px; color: var(--text-faint); }
 
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

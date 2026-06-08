@@ -56,3 +56,18 @@ CREATE TABLE IF NOT EXISTS capture_reloads (
 );
 
 CREATE INDEX IF NOT EXISTS capture_reloads_user_idx ON capture_reloads(user_id);
+
+-- ── Historial de emails enviados ──────────────────────────────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_email_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS email_logs (
+    id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type        TEXT        NOT NULL,
+    sent_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    status      TEXT        NOT NULL DEFAULT 'sent',
+    metadata    JSONB,
+    brevo_id    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS email_logs_user_idx ON email_logs(user_id);

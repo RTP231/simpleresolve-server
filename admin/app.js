@@ -11,9 +11,10 @@ let _editingId    = null;
 let _deletingId   = null;
 let _welcomingId  = null;
 let _reloadingId  = null;
-let _genEmail     = '';
-let _genPassword  = '';
-let _toastTimer   = null;
+let _genEmail      = '';
+let _genPassword   = '';
+let _historyUserId = null;
+let _toastTimer    = null;
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -241,13 +242,18 @@ function renderStats() {
 }
 
 function welcomeBadge(user) {
-  if (!user.welcome_sent_at) {
-    return '<span class="email-badge email-pending">Pendiente</span>';
+  const sentAt = user.last_email_at || user.welcome_sent_at;
+  if (!sentAt) {
+    return '<span class="email-badge email-pending">Sin emails</span>';
   }
-  if (user.welcome_opened_at) {
-    return '<span class="email-badge email-viewed">✉ Vista ✓</span>';
-  }
-  return '<span class="email-badge email-sent">✉ Enviada ✓</span>';
+  const dt = new Date(sentAt);
+  const now = new Date();
+  const isToday = dt.toDateString() === now.toDateString();
+  const timeStr = dt.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+  const label = isToday
+    ? `Hoy ${timeStr}`
+    : dt.toLocaleDateString('es-ES', {day: 'numeric', month: 'short'}) + ` ${timeStr}`;
+  return `<span class="email-badge email-sent" title="Último email enviado">✉ ${label}</span>`;
 }
 
 function renderUsers() {
@@ -270,6 +276,7 @@ function renderUsers() {
           <button class="btn-icon" title="Editar" onclick="openEdit('${u.id}')">✎</button>
           <button class="btn-icon" title="Enviar bienvenida" onclick="openWelcome('${u.id}')">✉</button>
           <button class="btn-icon btn-icon-success" title="Recargar capturas" onclick="openReload('${u.id}')">⚡</button>
+          <button class="btn-icon" title="Historial de comunicaciones" onclick="openEmailHistory('${u.id}','${escHtml(u.email)}')">📋</button>
           <button class="btn-icon danger" title="Eliminar" onclick="openDelete('${u.id}','${escHtml(u.email)}')">🗑</button>
         </div>
       </td>
@@ -668,6 +675,54 @@ async function sendReload() {
     btnLoading(btn, false, 'Recargar ⚡');
     _reloadingId = null;
   }
+}
+
+// ── Modal: historial de comunicaciones ────────────────────────────────────────
+async function openEmailHistory(id, email) {
+  _historyUserId = id;
+  $('email-history-user').textContent = email;
+  $('email-history-content').innerHTML = '<p class="history-empty">Cargando historial…</p>';
+  showModal('modal-email-history');
+  try {
+    const logs = await apiFetch(`/admin/users/${id}/email-history`);
+    renderEmailHistory(logs);
+  } catch (_) {
+    $('email-history-content').innerHTML = '<p class="history-empty" style="color:var(--danger)">Error al cargar historial.</p>';
+  }
+}
+
+function renderEmailHistory(items) {
+  if (!items || !items.length) {
+    $('email-history-content').innerHTML = '<p class="history-empty">No se han enviado emails a este usuario.</p>';
+    return;
+  }
+  const typeLabel = { welcome: 'Bienvenida', reload: 'Recarga' };
+  const rows = items.map(log => {
+    const dt = new Date(log.sent_at);
+    const dateStr = dt.toLocaleDateString('es-ES', {day: 'numeric', month: 'short', year: 'numeric'});
+    const timeStr = dt.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+    const type = typeLabel[log.type] || log.type;
+    const typeClass = log.type === 'welcome' ? 'email-type-welcome' : 'email-type-reload';
+    let details = '—';
+    if (log.type === 'reload' && log.metadata) {
+      const m = typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata;
+      if (m && m.amount != null) details = `+${m.amount} → ${m.total_after}`;
+    }
+    return `<tr>
+      <td><span class="email-type-badge ${typeClass}">${type}</span></td>
+      <td><span class="email-date-text">${dateStr}</span><br><span class="email-time-text">${timeStr}</span></td>
+      <td class="email-details-cell">${details}</td>
+    </tr>`;
+  }).join('');
+  $('email-history-content').innerHTML = `
+    <table class="history-table">
+      <thead><tr>
+        <th>Tipo</th>
+        <th>Fecha y hora</th>
+        <th>Detalles</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

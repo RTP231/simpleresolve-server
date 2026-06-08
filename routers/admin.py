@@ -188,139 +188,161 @@ def _fmt_dt(iso_str: str | None) -> str:
 
 
 def _welcome_html(email: str, password: str, purchase_iso: str | None) -> str:
-    download_url  = os.environ.get("DOWNLOAD_URL", "#")
-    purchase_str  = _fmt_dt(purchase_iso)
-    sent_str      = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    download_url = os.environ.get("DOWNLOAD_URL", "#")
+    purchase_str = _fmt_dt(purchase_iso)
+    sent_str     = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
     return f"""<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Bienvenido a SimpleResolve</title></head>
-<body style="margin:0;padding:0;background:#07060f;font-family:'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#07060f;padding:40px 16px;">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
-  <tr><td style="background:linear-gradient(135deg,#7c6fff,#5a4fcf);border-radius:14px 14px 0 0;padding:30px 36px;text-align:center;">
-    <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">SimpleResolve</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:1.2px;text-transform:uppercase;">Asistente inteligente para exámenes</div>
-  </td></tr>
-  <tr><td style="background:#0d0b1e;border:1px solid rgba(124,111,255,0.2);border-top:none;border-radius:0 0 14px 14px;padding:32px 36px;">
-    <h2 style="color:#eaeaf5;font-size:19px;font-weight:700;margin:0 0 8px;">&#x1F44B; ¡Bienvenido a SimpleResolve!</h2>
-    <p style="color:#9898b8;font-size:14px;line-height:1.65;margin:0 0 26px;">Tu acceso ha sido activado. Aquí están tus credenciales para iniciar sesión:</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(124,111,255,0.09);border:1px solid rgba(124,111,255,0.22);border-radius:10px;margin-bottom:26px;">
-    <tr><td style="padding:22px 24px;">
-      <div style="margin-bottom:16px;">
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Email de acceso</div>
-        <div style="font-size:15px;color:#eaeaf5;font-weight:600;">{email}</div>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Contraseña temporal</div>
-        <div style="display:inline-block;background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.3);border-radius:7px;padding:8px 16px;">
-          <span style="font-size:16px;color:#9d97ff;font-weight:700;font-family:'Courier New',monospace;letter-spacing:2px;">{password}</span>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Bienvenido a SimpleResolve</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0f0f1a;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0f0f1a;">
+<tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background-color:#141424;border-radius:16px;border:1px solid rgba(99,89,255,0.15);">
+  <tr>
+    <td align="center" bgcolor="#2d1f7a" style="background:linear-gradient(135deg,#6c47ff,#3b82f6);border-radius:16px 16px 0 0;padding:28px 36px;">
+      <div style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;font-family:Arial,sans-serif;">SimpleResolve</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:32px 36px;">
+      <h2 style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 10px;font-family:Arial,sans-serif;">¡Bienvenido!</h2>
+      <p style="color:#a0a0c0;font-size:14px;line-height:1.7;margin:0 0 26px;font-family:Arial,sans-serif;">Tu acceso ha sido activado. Aquí están tus credenciales para iniciar sesión:</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a18;border:1px solid rgba(74,222,128,0.2);border-radius:12px;margin-bottom:24px;">
+      <tr><td style="padding:22px 24px;">
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-family:Arial,sans-serif;">Email de acceso</div>
+          <div style="font-size:15px;color:#e8e8f5;font-weight:600;font-family:Arial,sans-serif;">{email}</div>
         </div>
-      </div>
-    </td></tr>
-    </table>
-    <h3 style="color:#eaeaf5;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 14px;">Cómo empezar</h3>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
-      <tr><td style="padding:9px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">01</span>
-        <span style="color:#9898b8;font-size:13px;">Descarga e instala la aplicación</span>
+        <div style="border-top:1px solid rgba(74,222,128,0.1);padding-top:16px;">
+          <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;font-family:Arial,sans-serif;">Contraseña</div>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="background-color:#060610;border:1px solid rgba(74,222,128,0.15);border-radius:8px;padding:10px 16px;">
+            <span style="font-size:18px;font-weight:700;color:#4ade80;font-family:'Courier New',Courier,monospace;letter-spacing:3px;">{password}</span>
+          </td></tr>
+          </table>
+        </div>
       </td></tr>
-      <tr><td style="padding:9px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">02</span>
-        <span style="color:#9898b8;font-size:13px;">Inicia sesión con tu email y contraseña</span>
-      </td></tr>
-      <tr><td style="padding:9px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">03</span>
-        <span style="color:#9898b8;font-size:13px;">Presiona <strong style="color:#eaeaf5;font-family:'Courier New',monospace;">Ctrl+Shift+S</strong> para capturar cualquier pregunta</span>
-      </td></tr>
-      <tr><td style="padding:9px 0;">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">04</span>
-        <span style="color:#9898b8;font-size:13px;">Recibe la respuesta con IA en segundos</span>
-      </td></tr>
-    </table>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
-    <tr><td align="center">
-      <a href="{download_url}" style="display:inline-block;background:linear-gradient(135deg,#7c6fff,#5a4fcf);color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 36px;border-radius:8px;">Descargar SimpleResolve &#x2192;</a>
-    </td></tr>
-    </table>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(124,111,255,0.1);border-radius:8px;margin-bottom:24px;">
-    <tr><td style="padding:14px 18px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="font-size:12px;color:#55547a;padding-bottom:6px;">Fecha de compra / activación</td>
-          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;padding-bottom:6px;">{purchase_str}</td>
-        </tr>
-        <tr>
-          <td style="font-size:12px;color:#55547a;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">Email de bienvenida enviado</td>
-          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">{sent_str}</td>
-        </tr>
       </table>
-    </td></tr>
-    </table>
-    <div style="background:rgba(124,111,255,0.06);border:1px solid rgba(124,111,255,0.14);border-radius:8px;padding:15px 18px;margin-bottom:22px;">
-      <div style="font-size:10px;font-weight:700;color:#7c6fff;text-transform:uppercase;letter-spacing:1px;margin-bottom:9px;">Términos de uso</div>
-      <p style="font-size:12px;color:#9898b8;line-height:1.7;margin:0;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal y educativo; (2) queda prohibido compartir credenciales o cuentas con terceros; (3) el uso fuera de los términos resultará en suspensión inmediata sin reembolso; (4) cada análisis de captura descuenta del saldo disponible en tu cuenta.</p>
-    </div>
-    <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">¿Problemas con tu acceso? Responde a este correo o contacta al soporte.<br>Generado automáticamente por SimpleResolve.</p>
-  </td></tr>
-  <tr><td style="padding:14px 0;text-align:center;">
-    <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
-  </td></tr>
+      <div style="margin-bottom:24px;">
+        <div style="font-size:10px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-family:Arial,sans-serif;">Cómo empezar</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:8px 0;border-bottom:1px solid rgba(99,89,255,0.08);">
+            <span style="font-size:12px;font-weight:800;color:#6c47ff;font-family:Arial,sans-serif;margin-right:14px;">01</span>
+            <span style="font-size:13px;color:#a0a0c0;font-family:Arial,sans-serif;">Descarga e instala la aplicación</span>
+          </td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid rgba(99,89,255,0.08);">
+            <span style="font-size:12px;font-weight:800;color:#6c47ff;font-family:Arial,sans-serif;margin-right:14px;">02</span>
+            <span style="font-size:13px;color:#a0a0c0;font-family:Arial,sans-serif;">Inicia sesión con tu email y contraseña</span>
+          </td></tr>
+          <tr><td style="padding:8px 0;">
+            <span style="font-size:12px;font-weight:800;color:#6c47ff;font-family:Arial,sans-serif;margin-right:14px;">03</span>
+            <span style="font-size:13px;color:#a0a0c0;font-family:Arial,sans-serif;">¡Listo! Ya puedes usar SimpleResolve</span>
+          </td></tr>
+        </table>
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+      <tr><td align="center">
+        <a href="{download_url}" style="display:inline-block;background:linear-gradient(135deg,#6c47ff,#3b82f6);color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:10px;font-family:Arial,sans-serif;">Descargar SimpleResolve &rarr;</a>
+      </td></tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.08);border-radius:8px;margin-bottom:22px;">
+      <tr><td style="padding:14px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="font-size:11px;color:#55547a;font-family:Arial,sans-serif;padding-bottom:5px;">Fecha de compra</td>
+            <td align="right" style="font-size:11px;color:#8080a0;font-weight:600;font-family:Arial,sans-serif;padding-bottom:5px;">{purchase_str}</td>
+          </tr>
+          <tr>
+            <td style="font-size:11px;color:#55547a;font-family:Arial,sans-serif;border-top:1px solid rgba(99,89,255,0.06);padding-top:5px;">Email enviado</td>
+            <td align="right" style="font-size:11px;color:#8080a0;font-weight:600;font-family:Arial,sans-serif;border-top:1px solid rgba(99,89,255,0.06);padding-top:5px;">{sent_str}</td>
+          </tr>
+        </table>
+      </td></tr>
+      </table>
+      <div style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.08);border-radius:8px;padding:14px 18px;margin-bottom:20px;">
+        <div style="font-size:10px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">Términos de uso</div>
+        <p style="font-size:11px;color:#6a6a8a;line-height:1.7;margin:0;font-family:Arial,sans-serif;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal; (2) queda prohibido compartir credenciales con terceros; (3) el desarrollador no se hace responsable del uso que el usuario final dé a la aplicación; (4) cualquier uso indebido o ilegal es responsabilidad exclusiva del usuario; (5) el uso fuera de estos términos resultará en suspensión inmediata sin reembolso; (6) cada captura descuenta del saldo mensual disponible; (7) SimpleResolve no ofrece reembolsos bajo ninguna circunstancia una vez activado el acceso.</p>
+      </div>
+      <p style="font-size:11px;color:#44445a;text-align:center;line-height:1.6;margin:0;font-family:Arial,sans-serif;">¿Problemas con tu acceso? Responde a este correo.<br>Generado automáticamente por SimpleResolve.</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background-color:#0d0d1a;border-top:1px solid rgba(99,89,255,0.08);border-radius:0 0 16px 16px;padding:14px 36px;text-align:center;">
+      <span style="font-size:11px;color:#44445a;font-family:Arial,sans-serif;">&copy; 2025 SimpleResolve &middot; Todos los derechos reservados</span>
+    </td>
+  </tr>
 </table>
 </td></tr>
 </table>
-</body></html>"""
+</body>
+</html>"""
 
 
 def _reload_html(email: str, amount: int, total_after: int) -> str:
     reload_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
     return f"""<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Capturas recargadas – SimpleResolve</title></head>
-<body style="margin:0;padding:0;background:#07060f;font-family:'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#07060f;padding:40px 16px;">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
-  <tr><td style="background:linear-gradient(135deg,#7c6fff,#5a4fcf);border-radius:14px 14px 0 0;padding:30px 36px;text-align:center;">
-    <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">SimpleResolve</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:1.2px;text-transform:uppercase;">Recarga de capturas</div>
-  </td></tr>
-  <tr><td style="background:#0d0b1e;border:1px solid rgba(124,111,255,0.2);border-top:none;border-radius:0 0 14px 14px;padding:32px 36px;">
-    <h2 style="color:#eaeaf5;font-size:19px;font-weight:700;margin:0 0 8px;">&#x26A1; ¡Capturas recargadas!</h2>
-    <p style="color:#9898b8;font-size:14px;line-height:1.65;margin:0 0 26px;">Hola <strong style="color:#eaeaf5;">{email}</strong>, tu saldo de capturas ha sido actualizado exitosamente.</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
-    <tr>
-      <td width="48%" style="background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);border-radius:10px;padding:20px;text-align:center;vertical-align:middle;">
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Capturas agregadas</div>
-        <div style="font-size:40px;font-weight:800;color:#00d4aa;line-height:1;">+{amount}</div>
-      </td>
-      <td width="4%"></td>
-      <td width="48%" style="background:rgba(124,111,255,0.08);border:1px solid rgba(124,111,255,0.2);border-radius:10px;padding:20px;text-align:center;vertical-align:middle;">
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Total disponible</div>
-        <div style="font-size:40px;font-weight:800;color:#9d97ff;line-height:1;">{total_after}</div>
-      </td>
-    </tr>
-    </table>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(124,111,255,0.1);border-radius:8px;margin-bottom:24px;">
-    <tr><td style="padding:14px 18px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="font-size:12px;color:#55547a;">Fecha y hora de recarga</td>
-          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;">{reload_str}</td>
-        </tr>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Capturas recargadas – SimpleResolve</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0f0f1a;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0f0f1a;">
+<tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background-color:#141424;border-radius:16px;border:1px solid rgba(99,89,255,0.15);">
+  <tr>
+    <td align="center" bgcolor="#2d1f7a" style="background:linear-gradient(135deg,#6c47ff,#3b82f6);border-radius:16px 16px 0 0;padding:28px 36px;">
+      <div style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;font-family:Arial,sans-serif;">SimpleResolve</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:32px 36px;">
+      <h2 style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 10px;font-family:Arial,sans-serif;">&#x26A1; ¡Capturas recargadas!</h2>
+      <p style="color:#a0a0c0;font-size:14px;line-height:1.7;margin:0 0 26px;font-family:Arial,sans-serif;">Hola <strong style="color:#e8e8f5;">{email}</strong>, tu saldo ha sido actualizado.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+      <tr>
+        <td width="48%" align="center" style="background-color:#0d1a0d;border:1px solid rgba(74,222,128,0.2);border-radius:12px;padding:20px 16px;">
+          <div style="font-size:10px;font-weight:700;color:#3a6a3a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">Capturas agregadas</div>
+          <div style="font-size:42px;font-weight:800;color:#4ade80;line-height:1;font-family:Arial,sans-serif;">+{amount}</div>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" align="center" style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.2);border-radius:12px;padding:20px 16px;">
+          <div style="font-size:10px;font-weight:700;color:#4a4a7a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">Total disponible</div>
+          <div style="font-size:42px;font-weight:800;color:#8b7cf8;line-height:1;font-family:Arial,sans-serif;">{total_after}</div>
+        </td>
+      </tr>
       </table>
-    </td></tr>
-    </table>
-    <p style="font-size:13px;color:#9898b8;text-align:center;line-height:1.6;margin:0 0 22px;">Tus capturas ya están disponibles. Abre SimpleResolve y sigue resolviendo.</p>
-    <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">Generado automáticamente por SimpleResolve.</p>
-  </td></tr>
-  <tr><td style="padding:14px 0;text-align:center;">
-    <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
-  </td></tr>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.08);border-radius:8px;margin-bottom:22px;">
+      <tr><td style="padding:14px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="font-size:11px;color:#55547a;font-family:Arial,sans-serif;">Fecha y hora de recarga</td>
+            <td align="right" style="font-size:11px;color:#8080a0;font-weight:600;font-family:Arial,sans-serif;">{reload_str}</td>
+          </tr>
+        </table>
+      </td></tr>
+      </table>
+      <p style="font-size:13px;color:#a0a0c0;text-align:center;line-height:1.6;margin:0 0 20px;font-family:Arial,sans-serif;">Tus capturas ya están disponibles. Abre SimpleResolve y sigue resolviendo.</p>
+      <p style="font-size:11px;color:#44445a;text-align:center;line-height:1.6;margin:0;font-family:Arial,sans-serif;">Generado automáticamente por SimpleResolve.</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background-color:#0d0d1a;border-top:1px solid rgba(99,89,255,0.08);border-radius:0 0 16px 16px;padding:14px 36px;text-align:center;">
+      <span style="font-size:11px;color:#44445a;font-family:Arial,sans-serif;">&copy; 2025 SimpleResolve &middot; Todos los derechos reservados</span>
+    </td>
+  </tr>
 </table>
 </td></tr>
 </table>
-</body></html>"""
+</body>
+</html>"""
 
 
 def _welcome_html_full(
@@ -335,112 +357,126 @@ def _welcome_html_full(
     created_str  = _fmt_dt(created_iso)
     venc_str     = _fmt_dt(fecha_venc_iso)
     return f"""<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Bienvenido a SimpleResolve</title></head>
-<body style="margin:0;padding:0;background:#07060f;font-family:'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#07060f;padding:40px 16px;">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
-  <tr><td style="background:linear-gradient(135deg,#7c6fff,#5a4fcf);border-radius:14px 14px 0 0;padding:30px 36px;text-align:center;">
-    <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">SimpleResolve</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:1.2px;text-transform:uppercase;">Asistente inteligente para exámenes</div>
-  </td></tr>
-  <tr><td style="background:#0d0b1e;border:1px solid rgba(124,111,255,0.2);border-top:none;border-radius:0 0 14px 14px;padding:32px 36px;">
-
-    <h2 style="color:#eaeaf5;font-size:19px;font-weight:700;margin:0 0 8px;">&#x1F44B; ¡Bienvenido a SimpleResolve!</h2>
-    <p style="color:#9898b8;font-size:14px;line-height:1.65;margin:0 0 24px;">Tu acceso ha sido activado. Aquí están tus credenciales para iniciar sesión:</p>
-
-    <!-- Credenciales -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(124,111,255,0.09);border:1px solid rgba(124,111,255,0.22);border-radius:10px;margin-bottom:20px;">
-    <tr><td style="padding:20px 22px;">
-      <div style="margin-bottom:16px;">
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Email de acceso (login)</div>
-        <div style="font-size:15px;color:#eaeaf5;font-weight:600;">{email_cuenta}</div>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;">Contraseña</div>
-        <div style="display:inline-block;background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.3);border-radius:7px;padding:8px 16px;">
-          <span style="font-size:17px;color:#9d97ff;font-weight:700;font-family:'Courier New',monospace;letter-spacing:2.5px;">{password}</span>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Bienvenido a SimpleResolve</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0f0f1a;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0f0f1a;">
+<tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background-color:#141424;border-radius:16px;border:1px solid rgba(99,89,255,0.15);">
+  <tr>
+    <td align="center" bgcolor="#2d1f7a" style="background:linear-gradient(135deg,#6c47ff,#3b82f6);border-radius:16px 16px 0 0;padding:28px 36px;">
+      <div style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;font-family:Arial,sans-serif;">SimpleResolve</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:32px 36px;">
+      <h2 style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 10px;font-family:Arial,sans-serif;">¡Bienvenido!</h2>
+      <p style="color:#a0a0c0;font-size:14px;line-height:1.7;margin:0 0 26px;font-family:Arial,sans-serif;">Tu acceso ha sido activado. Aquí están tus credenciales para iniciar sesión:</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a18;border:1px solid rgba(74,222,128,0.2);border-radius:12px;margin-bottom:24px;">
+      <tr><td style="padding:22px 24px;">
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-family:Arial,sans-serif;">Email de acceso</div>
+          <div style="font-size:15px;color:#e8e8f5;font-weight:600;font-family:Arial,sans-serif;">{email_cuenta}</div>
         </div>
-      </div>
-    </td></tr>
-    </table>
-
-    <!-- Detalles de cuenta -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-    <tr>
-      <td width="48%" style="background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.18);border-radius:8px;padding:14px 16px;vertical-align:top;">
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Capturas disponibles</div>
-        <div style="font-size:26px;font-weight:800;color:#00d4aa;line-height:1;">{captures_limite}</div>
-      </td>
-      <td width="4%"></td>
-      <td width="48%" style="background:rgba(124,111,255,0.07);border:1px solid rgba(124,111,255,0.18);border-radius:8px;padding:14px 16px;vertical-align:top;">
-        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Vigencia del acceso</div>
-        <div style="font-size:22px;font-weight:800;color:#9d97ff;line-height:1;">{dias_acceso} días</div>
-        <div style="font-size:11px;color:#55547a;margin-top:4px;">Vence: {venc_str}</div>
-      </td>
-    </tr>
-    </table>
-
-    <!-- Cómo usar -->
-    <h3 style="color:#eaeaf5;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px;">Cómo empezar</h3>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
-      <tr><td style="padding:8px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">01</span>
-        <span style="color:#9898b8;font-size:13px;">Descarga e instala la aplicación</span>
+        <div style="border-top:1px solid rgba(74,222,128,0.1);padding-top:16px;">
+          <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;font-family:Arial,sans-serif;">Contraseña</div>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="background-color:#060610;border:1px solid rgba(74,222,128,0.15);border-radius:8px;padding:10px 16px;">
+            <span style="font-size:18px;font-weight:700;color:#4ade80;font-family:'Courier New',Courier,monospace;letter-spacing:3px;">{password}</span>
+          </td></tr>
+          </table>
+        </div>
       </td></tr>
-      <tr><td style="padding:8px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">02</span>
-        <span style="color:#9898b8;font-size:13px;">Inicia sesión con tu email y contraseña</span>
-      </td></tr>
-      <tr><td style="padding:8px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">03</span>
-        <span style="color:#9898b8;font-size:13px;">Presiona <strong style="color:#eaeaf5;font-family:'Courier New',monospace;">Ctrl+Shift+S</strong> para capturar cualquier pregunta</span>
-      </td></tr>
-      <tr><td style="padding:8px 0;">
-        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">04</span>
-        <span style="color:#9898b8;font-size:13px;">Recibe la respuesta con IA en segundos</span>
-      </td></tr>
-    </table>
-
-    <!-- Botón descarga -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
-    <tr><td align="center">
-      <a href="{download_url}" style="display:inline-block;background:linear-gradient(135deg,#7c6fff,#5a4fcf);color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 36px;border-radius:8px;">Descargar SimpleResolve &#x2192;</a>
-    </td></tr>
-    </table>
-
-    <!-- Info de activación -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(124,111,255,0.1);border-radius:8px;margin-bottom:22px;">
-    <tr><td style="padding:14px 18px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="font-size:12px;color:#55547a;padding-bottom:6px;">Fecha y hora de activación</td>
-          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;padding-bottom:6px;">{created_str}</td>
-        </tr>
-        <tr>
-          <td style="font-size:12px;color:#55547a;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">Vencimiento de la cuenta</td>
-          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">{venc_str}</td>
-        </tr>
       </table>
-    </td></tr>
-    </table>
-
-    <!-- Términos -->
-    <div style="background:rgba(124,111,255,0.06);border:1px solid rgba(124,111,255,0.14);border-radius:8px;padding:14px 18px;margin-bottom:22px;">
-      <div style="font-size:10px;font-weight:700;color:#7c6fff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Términos de uso</div>
-      <p style="font-size:12px;color:#9898b8;line-height:1.7;margin:0;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal y educativo; (2) queda prohibido compartir credenciales o cuentas con terceros; (3) el uso fuera de los términos resultará en suspensión inmediata sin reembolso; (4) cada análisis de captura descuenta del saldo disponible en tu cuenta.</p>
-    </div>
-
-    <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">¿Problemas con tu acceso? Responde a este correo o contacta al soporte.<br>Generado automáticamente por SimpleResolve.</p>
-  </td></tr>
-  <tr><td style="padding:14px 0;text-align:center;">
-    <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
-  </td></tr>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+      <tr>
+        <td width="48%" valign="top" style="background-color:#0d1a0d;border:1px solid rgba(74,222,128,0.15);border-radius:10px;padding:16px 18px;">
+          <div style="font-size:10px;font-weight:700;color:#3a6a3a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:Arial,sans-serif;">Capturas mensuales</div>
+          <div style="font-size:30px;font-weight:800;color:#4ade80;line-height:1;margin-bottom:6px;font-family:Arial,sans-serif;">{captures_limite}</div>
+          <div style="font-size:10px;color:#3a5a3a;line-height:1.5;font-family:Arial,sans-serif;">Se reinician a {captures_limite} cada mes.<br>Puedes recargar si se agotan.</div>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" valign="top" style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.15);border-radius:10px;padding:16px 18px;">
+          <div style="font-size:10px;font-weight:700;color:#4a4a7a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:Arial,sans-serif;">Vigencia</div>
+          <div style="font-size:30px;font-weight:800;color:#8b7cf8;line-height:1;margin-bottom:6px;font-family:Arial,sans-serif;">{dias_acceso}d</div>
+          <div style="font-size:10px;color:#4a4a6a;line-height:1.5;font-family:Arial,sans-serif;">Vence el:<br>{venc_str}</div>
+        </td>
+      </tr>
+      </table>
+      <div style="margin-bottom:24px;">
+        <div style="font-size:10px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-family:Arial,sans-serif;">Cómo empezar</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:8px 0;border-bottom:1px solid rgba(99,89,255,0.08);">
+            <span style="font-size:12px;font-weight:800;color:#6c47ff;font-family:Arial,sans-serif;margin-right:14px;">01</span>
+            <span style="font-size:13px;color:#a0a0c0;font-family:Arial,sans-serif;">Descarga e instala la aplicación</span>
+          </td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid rgba(99,89,255,0.08);">
+            <span style="font-size:12px;font-weight:800;color:#6c47ff;font-family:Arial,sans-serif;margin-right:14px;">02</span>
+            <span style="font-size:13px;color:#a0a0c0;font-family:Arial,sans-serif;">Inicia sesión con tu email y contraseña</span>
+          </td></tr>
+          <tr><td style="padding:8px 0;">
+            <span style="font-size:12px;font-weight:800;color:#6c47ff;font-family:Arial,sans-serif;margin-right:14px;">03</span>
+            <span style="font-size:13px;color:#a0a0c0;font-family:Arial,sans-serif;">¡Listo! Ya puedes usar SimpleResolve</span>
+          </td></tr>
+        </table>
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+      <tr><td align="center">
+        <a href="{download_url}" style="display:inline-block;background:linear-gradient(135deg,#6c47ff,#3b82f6);color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:10px;font-family:Arial,sans-serif;">Descargar SimpleResolve &rarr;</a>
+      </td></tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.08);border-radius:8px;margin-bottom:22px;">
+      <tr><td style="padding:14px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="font-size:11px;color:#55547a;font-family:Arial,sans-serif;padding-bottom:5px;">Fecha y hora de activación</td>
+            <td align="right" style="font-size:11px;color:#8080a0;font-weight:600;font-family:Arial,sans-serif;padding-bottom:5px;">{created_str}</td>
+          </tr>
+          <tr>
+            <td style="font-size:11px;color:#55547a;font-family:Arial,sans-serif;border-top:1px solid rgba(99,89,255,0.06);padding-top:5px;">Vencimiento de cuenta</td>
+            <td align="right" style="font-size:11px;color:#8080a0;font-weight:600;font-family:Arial,sans-serif;border-top:1px solid rgba(99,89,255,0.06);padding-top:5px;">{venc_str}</td>
+          </tr>
+        </table>
+      </td></tr>
+      </table>
+      <div style="background-color:#0d0d1a;border:1px solid rgba(99,89,255,0.08);border-radius:8px;padding:14px 18px;margin-bottom:20px;">
+        <div style="font-size:10px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">Términos de uso</div>
+        <p style="font-size:11px;color:#6a6a8a;line-height:1.7;margin:0;font-family:Arial,sans-serif;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal; (2) queda prohibido compartir credenciales con terceros; (3) el desarrollador no se hace responsable del uso que el usuario final dé a la aplicación; (4) cualquier uso indebido o ilegal es responsabilidad exclusiva del usuario; (5) el uso fuera de estos términos resultará en suspensión inmediata sin reembolso; (6) cada captura descuenta del saldo mensual disponible; (7) SimpleResolve no ofrece reembolsos bajo ninguna circunstancia una vez activado el acceso.</p>
+      </div>
+      <p style="font-size:11px;color:#44445a;text-align:center;line-height:1.6;margin:0;font-family:Arial,sans-serif;">¿Problemas con tu acceso? Responde a este correo.<br>Generado automáticamente por SimpleResolve.</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background-color:#0d0d1a;border-top:1px solid rgba(99,89,255,0.08);border-radius:0 0 16px 16px;padding:14px 36px;text-align:center;">
+      <span style="font-size:11px;color:#44445a;font-family:Arial,sans-serif;">&copy; 2025 SimpleResolve &middot; Todos los derechos reservados</span>
+    </td>
+  </tr>
 </table>
 </td></tr>
 </table>
-</body></html>"""
+</body>
+</html>"""
+
+
+def _log_email(user_id: str, email_type: str, brevo_id: str = "", metadata: dict | None = None) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        supabase.table("email_logs").insert({
+            "user_id":  user_id,
+            "type":     email_type,
+            "sent_at":  now,
+            "status":   "sent",
+            "metadata": metadata or {},
+            "brevo_id": brevo_id,
+        }).execute()
+        supabase.table("users").update({"last_email_at": now}).eq("id", user_id).execute()
+    except Exception:
+        pass
 
 
 # ── Endpoints de autenticación ────────────────────────────────────────────────
@@ -593,7 +629,7 @@ async def set_price(body: PriceBody):
 async def list_users():
     result = supabase.table("users").select(
         "id,email,captures_remaining,captures_limite,fecha_vencimiento,activo,created_at,last_seen,"
-        "captures_used_today,welcome_sent_at,welcome_opened_at"
+        "captures_used_today,welcome_sent_at,welcome_opened_at,last_email_at"
     ).order("created_at", desc=True).execute()
     return result.data
 
@@ -743,6 +779,7 @@ async def create_with_welcome(body: CreateWithWelcomeBody, request: Request):
         "welcome_sent_at":   now_iso,
         "welcome_resend_id": email_id,
     }).eq("id", user_id).execute()
+    _log_email(user_id, "welcome", email_id)
 
     return {
         "id":               user_id,
@@ -819,6 +856,7 @@ async def send_welcome(user_id: str, body: WelcomeEmailBody):
         "welcome_resend_id": email_id,
         "welcome_opened_at": None,
     }).eq("id", user_id).execute()
+    _log_email(user_id, "welcome", email_id)
 
     return {"ok": True, "sent_at": now}
 
@@ -844,11 +882,12 @@ async def reload_captures(user_id: str, body: ReloadCapturesBody):
 
     try:
         html = _reload_html(user["email"], body.amount, new_remaining)
-        await _send_resend_email(
+        brevo_id = await _send_resend_email(
             to=user["email"],
             subject=f"SimpleResolve · Recarga de {body.amount} capturas",
             html=html,
         )
+        _log_email(user_id, "reload", brevo_id, {"amount": body.amount, "total_after": new_remaining})
     except HTTPException:
         pass  # La recarga se guardó; el email falla silenciosamente
 
@@ -860,6 +899,14 @@ async def reload_history(user_id: str):
     result = supabase.table("capture_reloads").select(
         "id,amount,captures_total_after,created_at"
     ).eq("user_id", user_id).order("created_at", desc=True).limit(50).execute()
+    return result.data or []
+
+
+@router.get("/users/{user_id}/email-history", dependencies=[Depends(_require_admin)])
+async def email_history(user_id: str):
+    result = supabase.table("email_logs").select(
+        "id,type,sent_at,status,metadata,brevo_id"
+    ).eq("user_id", user_id).order("sent_at", desc=True).limit(100).execute()
     return result.data or []
 
 
