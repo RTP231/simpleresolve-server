@@ -1,14 +1,10 @@
-import asyncio
 import base64
 import io
 import os
 import secrets
-import smtplib
 import string
 import time
 import httpx
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import pyotp
 import qrcode
 from datetime import datetime, timedelta, timezone
@@ -155,33 +151,30 @@ class CreateWithWelcomeBody(BaseModel):
 
 # ── Email helpers ─────────────────────────────────────────────────────────────
 async def _send_resend_email(to: str, subject: str, html: str) -> str:
-    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD", "").strip()
-    if not smtp_password:
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "BREVO_SMTP_PASSWORD no configurada en Railway.",
+            "RESEND_API_KEY no configurada en Railway.",
         )
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = "SimpleResolve <simpleresolve@gmail.com>"
-    msg["To"]      = to
-    msg.attach(MIMEText(html, "html", "utf-8"))
-
-    def _do_send():
-        with smtplib.SMTP_SSL("smtp-relay.brevo.com", 465, timeout=20) as server:
-            server.login("ade89f001@smtp-brevo.com", smtp_password)
-            server.sendmail("simpleresolve@gmail.com", to, msg.as_string())
-
-    try:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _do_send)
-    except smtplib.SMTPAuthenticationError:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Error SMTP: credenciales incorrectas. Verifica BREVO_SMTP_PASSWORD.")
-    except Exception as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Error SMTP al enviar email: {exc}")
-
-    return ""  # Sin email_id con SMTP (tracking de apertura no disponible)
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from":    "SimpleResolve <onboarding@resend.dev>",
+                "to":      [to],
+                "subject": subject,
+                "html":    html,
+            },
+        )
+    if not resp.is_success:
+        try:
+            err_msg = resp.json().get("message", resp.text[:200])
+        except Exception:
+            err_msg = resp.text[:200]
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Error Resend ({resp.status_code}): {err_msg}")
+    return resp.json().get("id", "")
 
 
 def _fmt_dt(iso_str: str | None) -> str:
@@ -693,11 +686,11 @@ async def create_user(body: CreateUserBody):
 
 @router.post("/users/create-with-welcome", status_code=201, dependencies=[Depends(_require_admin)])
 async def create_with_welcome(body: CreateWithWelcomeBody, request: Request):
-    # Verificar SMTP antes de tocar la DB
-    if not os.environ.get("BREVO_SMTP_PASSWORD", "").strip():
+    # Verificar Resend antes de tocar la DB
+    if not os.environ.get("RESEND_API_KEY", "").strip():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "BREVO_SMTP_PASSWORD no configurada en Railway.",
+            "RESEND_API_KEY no configurada en Railway.",
         )
 
     # Verificar que el email de cuenta no exista
