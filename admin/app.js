@@ -7,10 +7,12 @@ const API_BASE = 'https://simpleresolve-server-production.up.railway.app';
 let _step1Token   = null;
 let _adminToken   = null;
 let _users        = [];
-let _editingId    = null;   // null = crear, string = editar
+let _editingId    = null;
 let _deletingId   = null;
 let _welcomingId  = null;
 let _reloadingId  = null;
+let _genEmail     = '';
+let _genPassword  = '';
 let _toastTimer   = null;
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
@@ -279,25 +281,137 @@ function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Modal: crear usuario ───────────────────────────────────────────────────────
+// ── Modal: crear usuario (nuevo flujo 3 pasos) ────────────────────────────────
 $('btn-new-user').addEventListener('click', openCreate);
 
 function openCreate() {
-  _editingId = null;
-  $('modal-title').textContent = 'Nuevo usuario';
-  $('create-fields').classList.remove('hidden');
-  $('remaining-col').classList.add('hidden');
-  $('active-field').classList.add('hidden');
-  $('days-label').textContent = 'Días de acceso';
-  $('days-hint').classList.add('hidden');
-  $('f-email').value    = '';
-  $('f-password').value = '';
-  $('f-limite').value   = '200';
-  $('f-days').value     = '30';
-  $('f-active').checked = true;
-  clearError('modal-error');
-  showModal('modal-user');
-  $('f-email').focus();
+  _genEmail = _genPassword = '';
+  $('f-dest-email').value    = '';
+  $('f-dest-days').value     = '30';
+  $('f-dest-captures').value = '200';
+  clearError('cs-error-1');
+  clearError('cs-error-2');
+  showCreateStep(1);
+  showModal('modal-create');
+  $('f-dest-email').focus();
+}
+
+function showCreateStep(n) {
+  [1, 2, 3].forEach(i => $(`cs-step-${i}`).classList.toggle('hidden', i !== n));
+}
+
+function generateAndShowStep2() {
+  const emailDest = $('f-dest-email').value.trim();
+  const days      = parseInt($('f-dest-days').value);
+  const captures  = parseInt($('f-dest-captures').value);
+
+  clearError('cs-error-1');
+  if (!emailDest || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDest)) {
+    showError('cs-error-1', 'Ingresa un email destino válido.'); return;
+  }
+  if (isNaN(days) || days < 1) {
+    showError('cs-error-1', 'Los días de acceso deben ser al menos 1.'); return;
+  }
+  if (isNaN(captures) || captures < 1) {
+    showError('cs-error-1', 'Las capturas deben ser al menos 1.'); return;
+  }
+
+  // Generar email aleatorio
+  const chars  = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const suffix = Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  _genEmail = `user_${suffix}@simpleresolve.com`;
+
+  // Generar contraseña segura (12 chars, con mayúscula, minúscula, dígito y especial)
+  const upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower   = 'abcdefghjkmnpqrstuvwxyz';
+  const digits  = '23456789';
+  const special = '!@#$%';
+  const all     = upper + lower + digits + special;
+  let pwd = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+    special[Math.floor(Math.random() * special.length)],
+    ...Array.from({length: 8}, () => all[Math.floor(Math.random() * all.length)]),
+  ];
+  for (let i = pwd.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
+  }
+  _genPassword = pwd.join('');
+
+  // Poblar paso 2
+  $('prev-email-cuenta').textContent  = _genEmail;
+  $('prev-password').textContent      = _genPassword;
+  $('prev-email-destino').textContent = emailDest;
+  $('prev-captures').textContent      = captures;
+  $('prev-days').textContent          = `${days} días`;
+  clearError('cs-error-2');
+  showCreateStep(2);
+}
+
+$('btn-generate-creds').addEventListener('click', generateAndShowStep2);
+['f-dest-email', 'f-dest-days', 'f-dest-captures'].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('keydown', e => e.key === 'Enter' && generateAndShowStep2());
+});
+
+$('btn-create-confirm').addEventListener('click', confirmCreate);
+
+async function confirmCreate() {
+  if (!_genEmail || !_genPassword) {
+    showError('cs-error-2', 'Genera las credenciales primero.'); return;
+  }
+  const emailDest = $('f-dest-email').value.trim();
+  const days      = parseInt($('f-dest-days').value);
+  const captures  = parseInt($('f-dest-captures').value);
+
+  const btn = $('btn-create-confirm');
+  btnLoading(btn, true, 'Creando cuenta…');
+  clearError('cs-error-2');
+
+  try {
+    const result = await apiFetch('/admin/users/create-with-welcome', {
+      method: 'POST',
+      body: JSON.stringify({
+        email_destino:   emailDest,
+        email_cuenta:    _genEmail,
+        password_cuenta: _genPassword,
+        captures_limite: captures,
+        dias_acceso:     days,
+      }),
+    });
+
+    $('rcpt-email').textContent    = result.email_cuenta;
+    $('rcpt-password').textContent = result.password_cuenta;
+    $('rcpt-expiry').textContent   = formatDate(result.fecha_vencimiento);
+    $('rcpt-captures').textContent = result.captures_limite;
+    $('rcpt-destino').textContent  = result.email_destino;
+    showCreateStep(3);
+    loadUsers();
+
+  } catch (err) {
+    showError('cs-error-2', err.detail || 'Error al crear la cuenta.');
+  } finally {
+    btnLoading(btn, false, 'Crear cuenta y enviar bienvenida ✉');
+  }
+}
+
+function copyReceipt() {
+  const email  = $('rcpt-email').textContent;
+  const pwd    = $('rcpt-password').textContent;
+  const expiry = $('rcpt-expiry').textContent;
+  const caps   = $('rcpt-captures').textContent;
+  const text   = [
+    'SimpleResolve — Credenciales de acceso',
+    '',
+    `Email:      ${email}`,
+    `Contraseña: ${pwd}`,
+    '',
+    `Capturas:   ${caps}`,
+    `Vencimiento: ${expiry}`,
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(() => toast('Credenciales copiadas al portapapeles.'));
 }
 
 // ── Modal: editar usuario ──────────────────────────────────────────────────────

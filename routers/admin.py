@@ -1,6 +1,8 @@
 import base64
 import io
 import os
+import secrets
+import string
 import time
 import httpx
 import pyotp
@@ -137,6 +139,14 @@ class WelcomeEmailBody(BaseModel):
 
 class ReloadCapturesBody(BaseModel):
     amount: int
+
+
+class CreateWithWelcomeBody(BaseModel):
+    email_destino:   EmailStr
+    email_cuenta:    EmailStr
+    password_cuenta: str
+    captures_limite: int = 200
+    dias_acceso:     int = 30
 
 
 # ── Email helpers ─────────────────────────────────────────────────────────────
@@ -299,6 +309,126 @@ def _reload_html(email: str, amount: int, total_after: int) -> str:
     </table>
     <p style="font-size:13px;color:#9898b8;text-align:center;line-height:1.6;margin:0 0 22px;">Tus capturas ya están disponibles. Abre SimpleResolve y sigue resolviendo.</p>
     <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">Generado automáticamente por SimpleResolve.</p>
+  </td></tr>
+  <tr><td style="padding:14px 0;text-align:center;">
+    <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>"""
+
+
+def _welcome_html_full(
+    email_cuenta: str,
+    password: str,
+    captures_limite: int,
+    dias_acceso: int,
+    fecha_venc_iso: str,
+    created_iso: str,
+) -> str:
+    download_url = os.environ.get("DOWNLOAD_URL", "#")
+    created_str  = _fmt_dt(created_iso)
+    venc_str     = _fmt_dt(fecha_venc_iso)
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bienvenido a SimpleResolve</title></head>
+<body style="margin:0;padding:0;background:#07060f;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#07060f;padding:40px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+  <tr><td style="background:linear-gradient(135deg,#7c6fff,#5a4fcf);border-radius:14px 14px 0 0;padding:30px 36px;text-align:center;">
+    <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">SimpleResolve</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:1.2px;text-transform:uppercase;">Asistente inteligente para exámenes</div>
+  </td></tr>
+  <tr><td style="background:#0d0b1e;border:1px solid rgba(124,111,255,0.2);border-top:none;border-radius:0 0 14px 14px;padding:32px 36px;">
+
+    <h2 style="color:#eaeaf5;font-size:19px;font-weight:700;margin:0 0 8px;">&#x1F44B; ¡Bienvenido a SimpleResolve!</h2>
+    <p style="color:#9898b8;font-size:14px;line-height:1.65;margin:0 0 24px;">Tu acceso ha sido activado. Aquí están tus credenciales para iniciar sesión:</p>
+
+    <!-- Credenciales -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(124,111,255,0.09);border:1px solid rgba(124,111,255,0.22);border-radius:10px;margin-bottom:20px;">
+    <tr><td style="padding:20px 22px;">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Email de acceso (login)</div>
+        <div style="font-size:15px;color:#eaeaf5;font-weight:600;">{email_cuenta}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;">Contraseña</div>
+        <div style="display:inline-block;background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.3);border-radius:7px;padding:8px 16px;">
+          <span style="font-size:17px;color:#9d97ff;font-weight:700;font-family:'Courier New',monospace;letter-spacing:2.5px;">{password}</span>
+        </div>
+      </div>
+    </td></tr>
+    </table>
+
+    <!-- Detalles de cuenta -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+    <tr>
+      <td width="48%" style="background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.18);border-radius:8px;padding:14px 16px;vertical-align:top;">
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Capturas disponibles</div>
+        <div style="font-size:26px;font-weight:800;color:#00d4aa;line-height:1;">{captures_limite}</div>
+      </td>
+      <td width="4%"></td>
+      <td width="48%" style="background:rgba(124,111,255,0.07);border:1px solid rgba(124,111,255,0.18);border-radius:8px;padding:14px 16px;vertical-align:top;">
+        <div style="font-size:10px;font-weight:700;color:#55547a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Vigencia del acceso</div>
+        <div style="font-size:22px;font-weight:800;color:#9d97ff;line-height:1;">{dias_acceso} días</div>
+        <div style="font-size:11px;color:#55547a;margin-top:4px;">Vence: {venc_str}</div>
+      </td>
+    </tr>
+    </table>
+
+    <!-- Cómo usar -->
+    <h3 style="color:#eaeaf5;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px;">Cómo empezar</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
+      <tr><td style="padding:8px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">01</span>
+        <span style="color:#9898b8;font-size:13px;">Descarga e instala la aplicación</span>
+      </td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">02</span>
+        <span style="color:#9898b8;font-size:13px;">Inicia sesión con tu email y contraseña</span>
+      </td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid rgba(124,111,255,0.08);">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">03</span>
+        <span style="color:#9898b8;font-size:13px;">Presiona <strong style="color:#eaeaf5;font-family:'Courier New',monospace;">Ctrl+Shift+S</strong> para capturar cualquier pregunta</span>
+      </td></tr>
+      <tr><td style="padding:8px 0;">
+        <span style="color:#7c6fff;font-weight:700;font-size:13px;margin-right:12px;">04</span>
+        <span style="color:#9898b8;font-size:13px;">Recibe la respuesta con IA en segundos</span>
+      </td></tr>
+    </table>
+
+    <!-- Botón descarga -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
+    <tr><td align="center">
+      <a href="{download_url}" style="display:inline-block;background:linear-gradient(135deg,#7c6fff,#5a4fcf);color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 36px;border-radius:8px;">Descargar SimpleResolve &#x2192;</a>
+    </td></tr>
+    </table>
+
+    <!-- Info de activación -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(124,111,255,0.1);border-radius:8px;margin-bottom:22px;">
+    <tr><td style="padding:14px 18px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:12px;color:#55547a;padding-bottom:6px;">Fecha y hora de activación</td>
+          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;padding-bottom:6px;">{created_str}</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px;color:#55547a;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">Vencimiento de la cuenta</td>
+          <td align="right" style="font-size:12px;color:#9898b8;font-weight:600;border-top:1px solid rgba(124,111,255,0.08);padding-top:6px;">{venc_str}</td>
+        </tr>
+      </table>
+    </td></tr>
+    </table>
+
+    <!-- Términos -->
+    <div style="background:rgba(124,111,255,0.06);border:1px solid rgba(124,111,255,0.14);border-radius:8px;padding:14px 18px;margin-bottom:22px;">
+      <div style="font-size:10px;font-weight:700;color:#7c6fff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Términos de uso</div>
+      <p style="font-size:12px;color:#9898b8;line-height:1.7;margin:0;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal y educativo; (2) queda prohibido compartir credenciales o cuentas con terceros; (3) el uso fuera de los términos resultará en suspensión inmediata sin reembolso; (4) cada análisis de captura descuenta del saldo disponible en tu cuenta.</p>
+    </div>
+
+    <p style="font-size:11px;color:#55547a;text-align:center;line-height:1.6;margin:0;">¿Problemas con tu acceso? Responde a este correo o contacta al soporte.<br>Generado automáticamente por SimpleResolve.</p>
   </td></tr>
   <tr><td style="padding:14px 0;text-align:center;">
     <span style="font-size:11px;color:#55547a;">&#169; 2025 SimpleResolve · Todos los derechos reservados</span>
@@ -548,6 +678,77 @@ async def create_user(body: CreateUserBody):
         "activo": True,
     }).execute()
     return result.data[0]
+
+
+@router.post("/users/create-with-welcome", status_code=201, dependencies=[Depends(_require_admin)])
+async def create_with_welcome(body: CreateWithWelcomeBody, request: Request):
+    # Verificar Resend antes de tocar la DB
+    if not os.environ.get("RESEND_API_KEY", "").strip():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "RESEND_API_KEY no configurada en Railway. Agrégala para poder crear cuentas con bienvenida.",
+        )
+
+    # Verificar que el email de cuenta no exista
+    existing = supabase.table("users").select("id").eq("email", str(body.email_cuenta)).execute()
+    if existing.data:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El email de cuenta ya está en uso. Regenera las credenciales.")
+
+    ip  = _get_ip(request)
+    now = datetime.now(timezone.utc)
+    fecha_venc = (now + timedelta(days=body.dias_acceso)).isoformat()
+    now_iso    = now.isoformat()
+
+    # Crear usuario en Supabase
+    insert_r = supabase.table("users").insert({
+        "email":              str(body.email_cuenta),
+        "hashed_password":    hash_password(body.password_cuenta),
+        "captures_remaining": body.captures_limite,
+        "captures_limite":    body.captures_limite,
+        "fecha_vencimiento":  fecha_venc,
+        "activo":             True,
+        "created_by_ip":      ip,
+    }).execute()
+
+    if not insert_r.data:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Error al crear el usuario.")
+
+    user_id = insert_r.data[0]["id"]
+
+    # Enviar email de bienvenida completo (rollback si falla)
+    try:
+        html = _welcome_html_full(
+            email_cuenta    = str(body.email_cuenta),
+            password        = body.password_cuenta,
+            captures_limite = body.captures_limite,
+            dias_acceso     = body.dias_acceso,
+            fecha_venc_iso  = fecha_venc,
+            created_iso     = now_iso,
+        )
+        email_id = await _send_resend_email(
+            to      = str(body.email_destino),
+            subject = "¡Bienvenido a SimpleResolve! Tus credenciales de acceso",
+            html    = html,
+        )
+    except HTTPException as exc:
+        supabase.table("users").delete().eq("id", user_id).execute()
+        raise exc
+
+    # Guardar tracking del email
+    supabase.table("users").update({
+        "welcome_sent_at":   now_iso,
+        "welcome_resend_id": email_id,
+    }).eq("id", user_id).execute()
+
+    return {
+        "id":               user_id,
+        "email_cuenta":     str(body.email_cuenta),
+        "password_cuenta":  body.password_cuenta,
+        "email_destino":    str(body.email_destino),
+        "fecha_vencimiento": fecha_venc,
+        "captures_limite":  body.captures_limite,
+        "welcome_sent_at":  now_iso,
+    }
 
 
 @router.patch("/users/{user_id}", dependencies=[Depends(_require_admin)])

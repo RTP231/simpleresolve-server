@@ -184,6 +184,132 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════ MODAL: Crear usuario (nuevo flujo) ═══ -->
+  <div id="modal-create" class="modal-overlay hidden" onclick="overlayClose(event,'modal-create')">
+    <div class="modal-card modal-large">
+
+      <!-- PASO 1 · Datos del cliente -->
+      <div id="cs-step-1">
+        <div class="modal-header">
+          <h3>Nuevo usuario</h3>
+          <button class="btn-close" onclick="closeModal('modal-create')">✕</button>
+        </div>
+        <p class="modal-desc">Ingresa los datos del cliente. Las credenciales se generarán automáticamente.</p>
+
+        <label class="field-label">Email destino <span class="field-label-note">(donde llegará el correo de bienvenida)</span></label>
+        <input id="f-dest-email" type="email" class="inp" placeholder="cliente@gmail.com">
+
+        <div class="field-row">
+          <div class="field-col">
+            <label class="field-label">Días de acceso</label>
+            <input id="f-dest-days" type="number" class="inp" value="30" min="1">
+          </div>
+          <div class="field-col">
+            <label class="field-label">Capturas asignadas</label>
+            <input id="f-dest-captures" type="number" class="inp" value="200" min="1">
+          </div>
+        </div>
+
+        <div id="cs-error-1" class="error-msg hidden"></div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('modal-create')">Cancelar</button>
+          <button id="btn-generate-creds" class="btn btn-primary">Generar credenciales →</button>
+        </div>
+      </div>
+
+      <!-- PASO 2 · Vista previa de credenciales -->
+      <div id="cs-step-2" class="hidden">
+        <div class="modal-header">
+          <h3>Revisar y confirmar</h3>
+          <button class="btn-close" onclick="closeModal('modal-create')">✕</button>
+        </div>
+        <p class="modal-desc">Verifica las credenciales generadas antes de crear la cuenta y enviar la bienvenida.</p>
+
+        <div class="creds-box">
+          <div class="creds-row">
+            <span class="creds-label">Email de cuenta (login)</span>
+            <span class="creds-value" id="prev-email-cuenta"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row">
+            <span class="creds-label">Contraseña</span>
+            <span class="creds-value creds-mono" id="prev-password"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row">
+            <span class="creds-label">Bienvenida enviada a</span>
+            <span class="creds-value creds-dim" id="prev-email-destino"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row-double">
+            <div>
+              <span class="creds-label">Capturas</span>
+              <span class="creds-value" id="prev-captures"></span>
+            </div>
+            <div>
+              <span class="creds-label">Vigencia</span>
+              <span class="creds-value" id="prev-days"></span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-regen" onclick="generateAndShowStep2()">↺ Regenerar credenciales</button>
+
+        <div id="cs-error-2" class="error-msg hidden"></div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="showCreateStep(1)">← Volver</button>
+          <button id="btn-create-confirm" class="btn btn-primary">Crear cuenta y enviar bienvenida ✉</button>
+        </div>
+      </div>
+
+      <!-- PASO 3 · Comprobante -->
+      <div id="cs-step-3" class="hidden">
+        <div class="receipt-header">
+          <div class="receipt-check">✓</div>
+          <h3 class="receipt-title">¡Cuenta creada!</h3>
+          <p class="receipt-sub">El email de bienvenida fue enviado correctamente.</p>
+        </div>
+
+        <div class="creds-box">
+          <div class="creds-row">
+            <span class="creds-label">Email de cuenta (login)</span>
+            <span class="creds-value" id="rcpt-email"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row">
+            <span class="creds-label">Contraseña</span>
+            <span class="creds-value creds-mono" id="rcpt-password"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row">
+            <span class="creds-label">Vencimiento</span>
+            <span class="creds-value" id="rcpt-expiry"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row">
+            <span class="creds-label">Capturas asignadas</span>
+            <span class="creds-value" id="rcpt-captures"></span>
+          </div>
+          <div class="creds-divider"></div>
+          <div class="creds-row">
+            <span class="creds-label">Bienvenida enviada a</span>
+            <span class="creds-value creds-dim" id="rcpt-destino"></span>
+          </div>
+        </div>
+
+        <button class="btn btn-ghost btn-full" style="margin-top:14px;" onclick="copyReceipt()">⎘ Copiar credenciales al portapapeles</button>
+
+        <div class="modal-footer" style="margin-top:14px;">
+          <button class="btn btn-ghost" onclick="openCreate()">+ Crear otra cuenta</button>
+          <button class="btn btn-primary" onclick="closeModal('modal-create');loadUsers();">Cerrar</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ════════════════════════════════ MODAL: Enviar bienvenida ═══ -->
   <div id="modal-welcome" class="modal-overlay hidden" onclick="overlayClose(event,'modal-welcome')">
     <div class="modal-card">

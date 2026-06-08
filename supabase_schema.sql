@@ -40,11 +40,11 @@ CREATE TABLE IF NOT EXISTS admin_config (
     value TEXT NOT NULL
 );
 
--- ── Email de bienvenida (tracking) ────────────────────────────────────────────
--- Ejecutar estas líneas si la tabla users ya existe:
+-- ── Email de bienvenida (tracking) y creación ────────────────────────────────
 ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_sent_at   TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_opened_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_resend_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by_ip     TEXT;
 
 -- ── Historial de recargas de capturas ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS capture_reloads (
