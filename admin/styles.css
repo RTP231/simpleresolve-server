@@ -587,6 +587,7 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 .toast.toast-success { border-color: rgba(0,212,170,0.4); }
 .toast.toast-error   { border-color: rgba(255,77,106,0.4); }
+.toast.toast-warning { border-color: rgba(245,158,11,0.5); color: #fbbf24; }
 .toast.hidden { opacity: 0; transform: translateY(10px); pointer-events: none; }
 
 /* ── Modal de creación: etiqueta de campo con nota ───────────────────────── */

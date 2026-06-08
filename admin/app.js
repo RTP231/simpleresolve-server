@@ -613,6 +613,7 @@ async function openReload(id) {
   $('reload-user-email').textContent       = user.email;
   $('reload-current-captures').textContent = user.captures_remaining ?? '—';
   $('f-reload-amount').value               = '';
+  $('f-reload-email').value                = '';
   clearError('reload-error');
   $('reload-history-content').innerHTML    = '<p class="history-empty">Cargando historial…</p>';
   showModal('modal-reload');
@@ -651,9 +652,15 @@ $('f-reload-amount').addEventListener('keydown', e => e.key === 'Enter' && sendR
 
 async function sendReload() {
   if (!_reloadingId) return;
-  const amount = parseInt($('f-reload-amount').value);
+  const amount       = parseInt($('f-reload-amount').value);
+  const emailDestino = $('f-reload-email').value.trim();
+
   if (isNaN(amount) || amount < 1) {
     showError('reload-error', 'Ingresa una cantidad válida (mínimo 1).');
+    return;
+  }
+  if (!emailDestino) {
+    showError('reload-error', 'Ingresa el email del cliente para enviar el aviso.');
     return;
   }
 
@@ -664,11 +671,15 @@ async function sendReload() {
   try {
     const result = await apiFetch(`/admin/users/${_reloadingId}/reload-captures`, {
       method: 'POST',
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amount, email_destino: emailDestino }),
     });
     closeModal('modal-reload');
     await loadUsers();
-    toast(`⚡ ${amount} capturas recargadas. Total: ${result.new_remaining}.`, 'success');
+    if (result.email_sent) {
+      toast(`⚡ ${amount} capturas recargadas. Email enviado a ${emailDestino}.`, 'success');
+    } else {
+      toast(`⚡ Capturas recargadas (total: ${result.new_remaining}). ⚠ Email no enviado: ${result.email_error || 'error desconocido'}`, 'warning');
+    }
   } catch (err) {
     showError('reload-error', err.detail || 'Error al recargar capturas.');
   } finally {

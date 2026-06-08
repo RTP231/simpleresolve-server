@@ -350,7 +350,10 @@
 
       <label class="field-label">Capturas a agregar</label>
       <input id="f-reload-amount" type="number" class="inp" min="1" placeholder="Ej: 100">
-      <p class="field-hint" style="margin-top:-10px;margin-bottom:14px;">Se enviará un email automático al usuario con el detalle de la recarga.</p>
+
+      <label class="field-label">Email del cliente <span class="field-label-note">(donde llegará el aviso de recarga)</span></label>
+      <input id="f-reload-email" type="email" class="inp" placeholder="cliente@gmail.com">
+      <p class="field-hint" style="margin-top:-10px;margin-bottom:14px;">Ingresa el email real del cliente, no el email de cuenta del sistema.</p>
 
       <div id="reload-error" class="error-msg hidden"></div>
 
