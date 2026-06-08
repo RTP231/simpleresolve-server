@@ -801,6 +801,72 @@ input[type=number].inp::-webkit-inner-spin-button { -webkit-appearance: none; }
   font-family: monospace;
 }
 
+/* ── Modal extra grande ──────────────────────────────────────────────────── */
+.modal-xlarge { max-width: 680px; }
+
+/* ── User detail modal ───────────────────────────────────────────────────── */
+.detail-email-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  word-break: break-all;
+}
+.detail-stats-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.detail-stat-card {
+  flex: 1;
+  background: rgba(124,111,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.detail-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.detail-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--success);
+  line-height: 1;
+}
+.detail-stat-of {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.detail-section { margin-bottom: 18px; }
+.detail-table-scroll {
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.detail-date { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.detail-time { font-size: 11px; color: var(--muted); white-space: nowrap; font-family: monospace; }
+.detail-ip   { font-family: monospace; font-size: 11px; color: var(--text-faint); }
+.detail-ver  { font-size: 10px; color: var(--muted); }
+.detail-event { font-size: 11px; color: var(--text-dim); }
+.detail-ip-warning {
+  font-size: 11px;
+  color: var(--danger);
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  margin-bottom: 14px;
+}
+.user-detail-link { cursor: pointer; }
+.user-detail-link:hover { color: var(--accent-h); text-decoration: underline; }
+
 /* ── Email history modal ─────────────────────────────────────────────────── */
 .email-history-user-label {
   font-size: 13px;

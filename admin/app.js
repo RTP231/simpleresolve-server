@@ -265,7 +265,7 @@ function renderUsers() {
   $('users-tbody').innerHTML = _users.map(u => `
     <tr>
       <td class="col-email">
-        <span class="email-text">${escHtml(u.email)}</span>
+        <span class="email-text user-detail-link" onclick="openUserDetail('${u.id}')" title="Ver detalle">${escHtml(u.email)}</span>
         ${welcomeBadge(u)}
       </td>
       <td><span class="captures-text">${capturesText(u)}</span></td>
@@ -675,6 +675,98 @@ async function sendReload() {
     btnLoading(btn, false, 'Recargar ⚡');
     _reloadingId = null;
   }
+}
+
+// ── Modal: detalle de usuario ─────────────────────────────────────────────────
+async function openUserDetail(id) {
+  $('detail-email-sub').textContent = '';
+  $('detail-content').innerHTML = '<p class="history-empty">Cargando…</p>';
+  showModal('modal-user-detail');
+  try {
+    const data = await apiFetch(`/admin/users/${id}/details`);
+    renderUserDetail(data);
+  } catch (_) {
+    $('detail-content').innerHTML = '<p class="history-empty" style="color:var(--danger)">Error al cargar detalle.</p>';
+  }
+}
+
+function renderUserDetail(data) {
+  const user     = data.user || {};
+  const timeline = data.timeline || [];
+  const logins   = data.login_logs || [];
+
+  $('detail-email-sub').textContent = user.email || '';
+
+  const capturesRemaining = user.captures_remaining ?? '—';
+  const capturesLimite    = user.captures_limite    ?? '—';
+  const usedTotal         = data.captures_used_total ?? 0;
+  const usedToday         = data.captures_used_today ?? 0;
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const dt = new Date(iso);
+    return dt.toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric'});
+  }
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }
+
+  const timelineRows = timeline.length
+    ? timeline.map(e => `<tr>
+        <td class="detail-date">${fmtDate(e.timestamp)}</td>
+        <td class="detail-time">${fmtTime(e.timestamp)}</td>
+        <td class="detail-event">${e.event_type || '—'}</td>
+        <td class="detail-ip">${e.ip || '—'}</td>
+        <td class="detail-ver">${e.app_version || '—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="history-empty" style="text-align:center;padding:12px;">Sin actividad registrada.</td></tr>';
+
+  const loginRows = logins.length
+    ? logins.map(l => `<tr>
+        <td class="detail-date">${fmtDate(l.logged_at)}</td>
+        <td class="detail-time">${fmtTime(l.logged_at)}</td>
+        <td class="detail-ip">${l.ip || '—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="3" class="history-empty" style="text-align:center;padding:12px;">Sin inicios de sesión registrados.</td></tr>';
+
+  const ipWarning = data.ip_anomaly
+    ? `<div class="detail-ip-warning">⚠ IPs múltiples detectadas en la última hora</div>` : '';
+
+  $('detail-content').innerHTML = `
+    <div class="detail-stats-row">
+      <div class="detail-stat-card">
+        <div class="detail-stat-label">Capturas restantes</div>
+        <div class="detail-stat-value">${capturesRemaining}<span class="detail-stat-of"> / ${capturesLimite}</span></div>
+      </div>
+      <div class="detail-stat-card">
+        <div class="detail-stat-label">Capturas usadas (total)</div>
+        <div class="detail-stat-value" style="color:var(--accent-h)">${usedTotal}</div>
+      </div>
+      <div class="detail-stat-card">
+        <div class="detail-stat-label">Usadas hoy</div>
+        <div class="detail-stat-value" style="color:var(--warning)">${usedToday}</div>
+      </div>
+    </div>
+    ${ipWarning}
+    <div class="detail-section">
+      <h4 class="history-title">Timeline de actividad (últimas 20)</h4>
+      <div class="detail-table-scroll">
+        <table class="history-table">
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Evento</th><th>IP</th><th>Versión</th></tr></thead>
+          <tbody>${timelineRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="detail-section">
+      <h4 class="history-title">Últimos 10 inicios de sesión</h4>
+      <div class="detail-table-scroll">
+        <table class="history-table">
+          <thead><tr><th>Fecha</th><th>Hora</th><th>IP</th></tr></thead>
+          <tbody>${loginRows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 // ── Modal: historial de comunicaciones ────────────────────────────────────────

@@ -368,6 +368,25 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════ MODAL: Detalle de usuario ═══ -->
+  <div id="modal-user-detail" class="modal-overlay hidden" onclick="overlayClose(event,'modal-user-detail')">
+    <div class="modal-card modal-xlarge">
+      <div class="modal-header">
+        <div>
+          <h3>Detalle de usuario</h3>
+          <span id="detail-email-sub" class="detail-email-sub"></span>
+        </div>
+        <button class="btn-close" onclick="closeModal('modal-user-detail')">✕</button>
+      </div>
+      <div id="detail-content">
+        <p class="history-empty">Cargando…</p>
+      </div>
+      <div class="modal-footer" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="closeModal('modal-user-detail')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════════════════════════ MODAL: Historial de comunicaciones ═══ -->
   <div id="modal-email-history" class="modal-overlay hidden" onclick="overlayClose(event,'modal-email-history')">
     <div class="modal-card modal-large">
