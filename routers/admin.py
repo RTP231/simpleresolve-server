@@ -80,7 +80,7 @@ def _make_step1_token() -> str:
 
 
 def _make_admin_token() -> str:
-    exp = datetime.now(timezone.utc) + timedelta(hours=2)
+    exp = datetime.now(timezone.utc) + timedelta(hours=6)
     return jwt.encode({"sub": "admin", "type": "admin", "exp": exp}, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -481,8 +481,18 @@ def _log_email(user_id: str, email_type: str, brevo_id: str = "", metadata: dict
 
 
 # ── Endpoints de autenticación ────────────────────────────────────────────────
+def _check_machine_id(request: Request) -> None:
+    allowed = os.environ.get("ADMIN_MACHINE_ID", "").strip()
+    if not allowed:
+        return
+    client_id = request.headers.get("X-Machine-ID", "").strip()
+    if client_id != allowed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Acceso no autorizado desde este equipo.")
+
+
 @router.post("/auth/password")
 async def auth_password(body: PasswordBody, request: Request):
+    _check_machine_id(request)
     ip = _get_ip(request)
     _check_rate_limit(ip)
 

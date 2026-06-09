@@ -6,6 +6,30 @@ const API_BASE = 'https://simpleresolve-server-production.up.railway.app';
 // ── Estado ────────────────────────────────────────────────────────────────────
 let _step1Token   = null;
 let _adminToken   = null;
+
+// ── Persistencia de sesión (6 horas) ─────────────────────────────────────────
+const _TOKEN_KEY = 'sr_admin_token';
+const _TOKEN_EXP = 'sr_admin_exp';
+const _TOKEN_TTL = 6 * 60 * 60 * 1000; // 6 horas en ms
+
+function _saveToken(token) {
+  localStorage.setItem(_TOKEN_KEY, token);
+  localStorage.setItem(_TOKEN_EXP, Date.now() + _TOKEN_TTL);
+}
+
+function _loadSavedToken() {
+  const token = localStorage.getItem(_TOKEN_KEY);
+  const exp   = parseInt(localStorage.getItem(_TOKEN_EXP) || '0', 10);
+  if (token && Date.now() < exp) return token;
+  localStorage.removeItem(_TOKEN_KEY);
+  localStorage.removeItem(_TOKEN_EXP);
+  return null;
+}
+
+function _clearSavedToken() {
+  localStorage.removeItem(_TOKEN_KEY);
+  localStorage.removeItem(_TOKEN_EXP);
+}
 let _users        = [];
 let _editingId    = null;
 let _deletingId   = null;
@@ -185,6 +209,7 @@ async function submitTotp() {
     });
 
     _adminToken = data.access_token;
+    _saveToken(_adminToken);
     showScreen('dashboard');
     loadUsers();
 
@@ -200,6 +225,7 @@ $('btn-logout').addEventListener('click', () => {
   _adminToken  = null;
   _step1Token  = null;
   _users       = [];
+  _clearSavedToken();
   $('inp-password').value = '';
   $('inp-totp').value = '';
   $('step-password').classList.remove('hidden');
@@ -877,5 +903,14 @@ function renderEmailHistory(items) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-showScreen('login');
-$('inp-password').focus();
+(function init() {
+  const saved = _loadSavedToken();
+  if (saved) {
+    _adminToken = saved;
+    showScreen('dashboard');
+    loadUsers();
+  } else {
+    showScreen('login');
+    $('inp-password').focus();
+  }
+})();
