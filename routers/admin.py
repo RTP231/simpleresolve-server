@@ -543,22 +543,36 @@ async def auth_totp(body: TotpBody, request: Request):
 @router.get("/stats", dependencies=[Depends(_require_admin)])
 async def get_stats():
     now = datetime.now(timezone.utc)
-    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
     yesterday = now - timedelta(hours=24)
+    today_str = now.strftime("%Y-%m-%d")
+    month_str = now.strftime("%Y-%m")
 
-    # Capturas por día (últimos 7 días)
-    cap_logs = supabase.table("usage_logs").select("timestamp").eq(
+    # Capturas últimos 30 días (para el gráfico + stats de hoy/mes)
+    cap_logs_30 = supabase.table("usage_logs").select("timestamp").eq(
         "event_type", "capture"
-    ).gte("timestamp", seven_days_ago.isoformat()).execute()
+    ).gte("timestamp", thirty_days_ago.isoformat()).execute()
 
     daily: dict[str, int] = {}
-    for i in range(7):
-        day = (now - timedelta(days=6 - i)).strftime("%Y-%m-%d")
+    for i in range(30):
+        day = (now - timedelta(days=29 - i)).strftime("%Y-%m-%d")
         daily[day] = 0
-    for log in cap_logs.data or []:
-        day = (log.get("timestamp") or "")[:10]
+
+    caps_today = 0
+    caps_month = 0
+    for log in cap_logs_30.data or []:
+        ts = log.get("timestamp") or ""
+        day = ts[:10]
         if day in daily:
             daily[day] += 1
+        if day == today_str:
+            caps_today += 1
+        if ts[:7] == month_str:
+            caps_month += 1
+
+    # Total histórico de capturas
+    total_r = supabase.table("usage_logs").select("id", count="exact").eq("event_type", "capture").execute()
+    caps_total = total_r.count or 0
 
     # Actividad últimas 24h
     events_24h = supabase.table("usage_logs").select(
@@ -589,6 +603,9 @@ async def get_stats():
         "active_users": active_count,
         "price": price,
         "revenue": round(active_count * price, 2),
+        "captures_total": caps_total,
+        "captures_today": caps_today,
+        "captures_month": caps_month,
     }
 
 

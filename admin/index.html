@@ -72,7 +72,7 @@
     </header>
 
     <main class="main-content">
-      <!-- Stats -->
+      <!-- Stats usuarios -->
       <div class="stats-row" id="stats-row">
         <div class="stat-card">
           <span class="stat-value" id="stat-total">—</span>
@@ -90,6 +90,30 @@
           <span class="stat-value danger" id="stat-expired">—</span>
           <span class="stat-label">Vencidos / Bloqueados</span>
         </div>
+      </div>
+
+      <!-- Stats capturas -->
+      <div class="stats-row captures-row">
+        <div class="stat-card">
+          <span class="stat-value accent" id="stat-caps-total">—</span>
+          <span class="stat-label">Total capturas históricas</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value accent" id="stat-caps-today">—</span>
+          <span class="stat-label">Capturas hoy (todas las cuentas)</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value accent" id="stat-caps-month">—</span>
+          <span class="stat-label">Capturas este mes</span>
+        </div>
+      </div>
+
+      <!-- Gráfica 30 días -->
+      <div class="chart-section">
+        <div class="chart-header">
+          <span class="chart-title">Capturas por día — últimos 30 días</span>
+        </div>
+        <canvas id="captures-chart" class="chart-canvas"></canvas>
       </div>
 
       <!-- Toolbar -->

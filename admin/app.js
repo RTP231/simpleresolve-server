@@ -235,18 +235,112 @@ $('btn-logout').addEventListener('click', () => {
   showScreen('login');
 });
 
-// ── Cargar usuarios ────────────────────────────────────────────────────────────
+// ── Cargar usuarios + stats ───────────────────────────────────────────────────
 async function loadUsers() {
   $('users-tbody').innerHTML = '<tr><td colspan="5" class="loading-row">Cargando…</td></tr>';
 
   try {
-    _users = await apiFetch('/admin/users');
+    [_users] = await Promise.all([
+      apiFetch('/admin/users'),
+      loadCaptureStats(),
+    ]);
     renderUsers();
     renderStats();
   } catch (err) {
     $('users-tbody').innerHTML = `<tr><td colspan="5" class="loading-row" style="color:var(--danger)">
       Error al cargar usuarios: ${err.detail}</td></tr>`;
   }
+}
+
+async function loadCaptureStats() {
+  try {
+    const data = await apiFetch('/admin/stats');
+    $('stat-caps-total').textContent = (data.captures_total ?? 0).toLocaleString('es-ES');
+    $('stat-caps-today').textContent = (data.captures_today ?? 0).toLocaleString('es-ES');
+    $('stat-caps-month').textContent = (data.captures_month ?? 0).toLocaleString('es-ES');
+    _chartData = data.chart || [];
+    renderCaptureChart(_chartData);
+  } catch (_) {}
+}
+
+function renderCaptureChart(data) {
+  const canvas = $('captures-chart');
+  if (!canvas || !data.length) return;
+
+  // Ajustar resolución al DPR para nitidez
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 800;
+  const cssH = 160;
+  canvas.width  = cssW * dpr;
+  canvas.height = cssH * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 24, right: 12, bottom: 36, left: 38 };
+  const cw = cssW - pad.left - pad.right;
+  const ch = cssH - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const values = data.map(d => d.count);
+  const maxVal = Math.max(...values, 1);
+  const barW   = cw / data.length;
+
+  // Grid lines + Y labels
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const y = pad.top + ch * (1 - i / steps);
+    ctx.strokeStyle = 'rgba(124,111,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+    ctx.fillStyle = '#55547a';
+    ctx.font = `10px "Segoe UI", sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal * i / steps), pad.left - 5, y + 3.5);
+  }
+
+  // Bars
+  data.forEach((d, i) => {
+    const barH  = Math.max((d.count / maxVal) * ch, d.count > 0 ? 2 : 0);
+    const x     = pad.left + i * barW + barW * 0.18;
+    const bw    = barW * 0.64;
+    const y     = pad.top + ch - barH;
+
+    if (d.count > 0) {
+      const grad = ctx.createLinearGradient(x, y, x, y + barH);
+      grad.addColorStop(0, 'rgba(108,71,255,0.9)');
+      grad.addColorStop(1, 'rgba(59,130,246,0.7)');
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = 'rgba(85,84,122,0.25)';
+    }
+
+    ctx.beginPath();
+    const r = Math.min(3, bw / 2);
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + bw - r, y);
+    ctx.quadraticCurveTo(x + bw, y, x + bw, y + r);
+    ctx.lineTo(x + bw, y + barH);
+    ctx.lineTo(x, y + barH);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+
+    // X labels: cada 5 días + último
+    if (i % 5 === 0 || i === data.length - 1) {
+      const dt    = new Date(d.date + 'T12:00:00Z');
+      const label = dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      ctx.fillStyle   = '#55547a';
+      ctx.font        = `9px "Segoe UI", sans-serif`;
+      ctx.textAlign   = 'center';
+      ctx.fillText(label, x + bw / 2, pad.top + ch + 18);
+    }
+  });
 }
 
 function renderStats() {
@@ -901,6 +995,10 @@ function renderEmailHistory(items) {
       <tbody>${rows}</tbody>
     </table>`;
 }
+
+// ── Resize: re-render chart ───────────────────────────────────────────────────
+let _chartData = [];
+window.addEventListener('resize', () => { if (_chartData.length) renderCaptureChart(_chartData); });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (function init() {
