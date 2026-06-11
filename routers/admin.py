@@ -269,6 +269,15 @@ def _welcome_html(email: str, password: str, purchase_iso: str | None, sent_iso:
         <div style="font-size:10px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">Términos de uso</div>
         <p style="font-size:11px;color:#6a6a8a;line-height:1.7;margin:0;font-family:Arial,sans-serif;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal; (2) queda prohibido compartir credenciales con terceros; (3) el desarrollador no se hace responsable del uso que el usuario final dé a la aplicación; (4) cualquier uso indebido o ilegal es responsabilidad exclusiva del usuario; (5) el uso fuera de estos términos resultará en suspensión inmediata sin reembolso; (6) cada captura descuenta del saldo mensual disponible; (7) SimpleResolve no ofrece reembolsos bajo ninguna circunstancia una vez activado el acceso; (8) SimpleResolve se encuentra actualmente en fase beta. Durante esta etapa es posible que el programa cometa errores o se equivoque en algunas respuestas. El sistema se perfecciona continuamente con el uso y no se garantiza precisión del 100% en esta versión.</p>
       </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fff8e1;border:1px solid #f0c343;border-radius:8px;margin-bottom:20px;">
+      <tr><td style="padding:16px 18px;">
+        <div style="font-size:13px;font-weight:700;color:#7a5400;margin-bottom:8px;font-family:Arial,sans-serif;">⚠️ Nota importante al instalar</div>
+        <p style="font-size:12px;color:#6b4e00;line-height:1.7;margin:0 0 10px;font-family:Arial,sans-serif;">Windows puede mostrar una advertencia de seguridad al ejecutar SimpleResolve por primera vez indicando que el archivo puede ser peligroso. Esto es completamente normal para aplicaciones nuevas que aún no tienen firma digital certificada. SimpleResolve es 100% seguro.</p>
+        <p style="font-size:12px;font-weight:700;color:#6b4e00;line-height:1.7;margin:0 0 6px;font-family:Arial,sans-serif;">Para instalar correctamente:</p>
+        <p style="font-size:12px;color:#6b4e00;line-height:1.7;margin:0 0 10px;font-family:Arial,sans-serif;">1. Haz click en "Más información"<br>2. Haz click en "Ejecutar de todas formas"</p>
+        <p style="font-size:12px;color:#6b4e00;line-height:1.7;margin:0;font-family:Arial,sans-serif;">Esta advertencia desaparece con el tiempo conforme más usuarios instalan la aplicación.</p>
+      </td></tr>
+      </table>
       <p style="font-size:11px;color:#44445a;text-align:center;line-height:1.6;margin:0;font-family:Arial,sans-serif;">¿Problemas con tu acceso? Responde a este correo.<br>Generado automáticamente por SimpleResolve.</p>
     </td>
   </tr>
@@ -449,6 +458,15 @@ def _welcome_html_full(
         <div style="font-size:10px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">Términos de uso</div>
         <p style="font-size:11px;color:#6a6a8a;line-height:1.7;margin:0;font-family:Arial,sans-serif;">Al usar SimpleResolve aceptas que: (1) el software es para uso estrictamente personal; (2) queda prohibido compartir credenciales con terceros; (3) el desarrollador no se hace responsable del uso que el usuario final dé a la aplicación; (4) cualquier uso indebido o ilegal es responsabilidad exclusiva del usuario; (5) el uso fuera de estos términos resultará en suspensión inmediata sin reembolso; (6) cada captura descuenta del saldo mensual disponible; (7) SimpleResolve no ofrece reembolsos bajo ninguna circunstancia una vez activado el acceso; (8) SimpleResolve se encuentra actualmente en fase beta. Durante esta etapa es posible que el programa cometa errores o se equivoque en algunas respuestas. El sistema se perfecciona continuamente con el uso y no se garantiza precisión del 100% en esta versión.</p>
       </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fff8e1;border:1px solid #f0c343;border-radius:8px;margin-bottom:20px;">
+      <tr><td style="padding:16px 18px;">
+        <div style="font-size:13px;font-weight:700;color:#7a5400;margin-bottom:8px;font-family:Arial,sans-serif;">⚠️ Nota importante al instalar</div>
+        <p style="font-size:12px;color:#6b4e00;line-height:1.7;margin:0 0 10px;font-family:Arial,sans-serif;">Windows puede mostrar una advertencia de seguridad al ejecutar SimpleResolve por primera vez indicando que el archivo puede ser peligroso. Esto es completamente normal para aplicaciones nuevas que aún no tienen firma digital certificada. SimpleResolve es 100% seguro.</p>
+        <p style="font-size:12px;font-weight:700;color:#6b4e00;line-height:1.7;margin:0 0 6px;font-family:Arial,sans-serif;">Para instalar correctamente:</p>
+        <p style="font-size:12px;color:#6b4e00;line-height:1.7;margin:0 0 10px;font-family:Arial,sans-serif;">1. Haz click en "Más información"<br>2. Haz click en "Ejecutar de todas formas"</p>
+        <p style="font-size:12px;color:#6b4e00;line-height:1.7;margin:0;font-family:Arial,sans-serif;">Esta advertencia desaparece con el tiempo conforme más usuarios instalan la aplicación.</p>
+      </td></tr>
+      </table>
       <p style="font-size:11px;color:#44445a;text-align:center;line-height:1.6;margin:0;font-family:Arial,sans-serif;">¿Problemas con tu acceso? Responde a este correo.<br>Generado automáticamente por SimpleResolve.</p>
     </td>
   </tr>
