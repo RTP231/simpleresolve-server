@@ -1,0 +1,186 @@
+# SimpleResolve.initUI reconstruido desde bytecode (interfaz.pyc, 6178->7450 bytes)
+# Reemplaza al initUI viejo. Cambios principales respecto a la versión vieja:
+#   - setWindowIcon(QIcon(_resource('icon.ico')))
+#   - Nuevo lbl_logo (icono 18x18) en el header
+#   - Nuevo btn_personalizar ('🎨') -> abrir_personalizacion, objectName btnHeader
+#   - Nuevo btn_menu ('≡') -> abrir_menu, objectName btnHeader
+#   - ELIMINADO btn_tema (ya no hay toggle de tema claro/oscuro)
+#   - lbl_resp ya no fija font-size aquí (lo maneja aplicar_tema/_aplicar_font_size)
+#   - lbl_uso inicial: 'Capturas restantes: --' (antes 'Capturas: 0/100')
+#   - Nueva fila4 en el panel de atajos: autodestrucción (mantener pulsado)
+#   - Al final: aplicar_tema() + _aplicar_personalizacion_visual() + _restaurar_posicion()
+#
+# Requiere import nuevo: from PyQt6.QtGui import QIcon  (si no está ya importado)
+# y _resource (ya en _reconstruido_modulo.py)
+
+    def initUI(self):
+        self.setWindowTitle("SimpleResolve")
+        self.setWindowIcon(QIcon(_resource('icon.ico')))
+        self.setFixedWidth(320)
+        self._aplicar_flags()
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        lay = QVBoxLayout()
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        self.setLayout(lay)
+
+        # Panel glass principal
+        self.glass = PanelGlass(oscuro=True)
+        lay.addWidget(self.glass)
+
+        c = QVBoxLayout()
+        c.setContentsMargins(8, 6, 8, 6)
+        c.setSpacing(4)
+        self.glass.setLayout(c)
+
+        # ── Header ──
+        self.w_header = QWidget()
+        self.w_header.setStyleSheet("background: transparent;")
+        hl = QHBoxLayout(self.w_header)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+
+        self.lbl_logo = QLabel()
+        self.lbl_logo.setStyleSheet("background: transparent;")
+        self.lbl_logo.setPixmap(QIcon(_resource('icon.ico')).pixmap(18, 18))
+
+        self.lbl_titulo = QLabel("SimpleResolve")
+        self.lbl_titulo.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        self.lbl_titulo.setStyleSheet("color: #eaeaf5; background: transparent;")
+
+        self.btn_personalizar = QPushButton("🎨")
+        self.btn_personalizar.setFixedSize(20, 20)
+        self.btn_personalizar.setToolTip("Personalizar")
+        self.btn_personalizar.clicked.connect(self.abrir_personalizacion)
+        self.btn_personalizar.setObjectName("btnHeader")
+
+        self.btn_menu = QPushButton("≡")
+        self.btn_menu.setFixedSize(20, 20)
+        self.btn_menu.setToolTip("Menú")
+        self.btn_menu.clicked.connect(self.abrir_menu)
+        self.btn_menu.setObjectName("btnHeader")
+
+        self.btn_min = QPushButton("─")
+        self.btn_min.setFixedSize(20, 20)
+        self.btn_min.clicked.connect(self.showMinimized)
+        self.btn_min.setObjectName("btnHeader")
+
+        hl.addWidget(self.lbl_logo)
+        hl.addWidget(self.lbl_titulo)
+        hl.addStretch()
+        hl.addWidget(self.btn_personalizar)
+        hl.addWidget(self.btn_menu)
+        hl.addWidget(self.btn_min)
+        c.addWidget(self.w_header)
+
+        # ── Barra flotante SIEMPRE VISIBLE ──
+        self.barra = BarraFlotante()
+        self.barra.btn_color.clicked.connect(self.elegir_color)
+        self.barra.slider.valueChanged.connect(self.cambiar_opacidad)
+        self.barra.slider_font.valueChanged.connect(self.cambiar_font_size)
+        self.barra.btn_modo.clicked.connect(self.toggle_modo_texto)
+        self._actualizar_btn_color()
+        c.addWidget(self.barra)
+
+        # ── Respuesta ──
+        self.resp_panel = RespPanel(oscuro=True)
+        rl = QVBoxLayout(self.resp_panel)
+        rl.setContentsMargins(10, 5, 8, 5)
+        self.lbl_resp = QLabel("Respuesta...")
+        self.lbl_resp.setObjectName("lblResp")
+        self.lbl_resp.setWordWrap(True)
+        self.lbl_resp.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.lbl_resp.setFont(QFont("Consolas", 13, QFont.Weight.Bold))
+        self.lbl_resp.setStyleSheet(f"color: {self.color_texto}; background: transparent;")
+        rl.addWidget(self.lbl_resp)
+        c.addWidget(self.resp_panel)
+
+        # ── Botones ──
+        self.w_btns = QWidget()
+        self.w_btns.setStyleSheet("background: transparent;")
+        bl = QHBoxLayout(self.w_btns)
+        bl.setContentsMargins(0, 0, 0, 0)
+        bl.setSpacing(5)
+        self.btn_cap = QPushButton("📸 Capturar")
+        self.btn_cap.clicked.connect(self.capturar)
+        self.btn_cap.setObjectName("btnCap")
+        self.btn_x = QPushButton("✕")
+        self.btn_x.setFixedWidth(36)
+        self.btn_x.clicked.connect(self.close)
+        self.btn_x.setObjectName("btnCerrar")
+        bl.addWidget(self.btn_cap)
+        bl.addWidget(self.btn_x)
+        c.addWidget(self.w_btns)
+
+        # ── Atajos ──
+        self.btn_atajos = QPushButton("⌨️ Atajos ▼")
+        self.btn_atajos.setObjectName("btnAtalos")
+        self.btn_atajos.clicked.connect(self.toggle_atajos)
+        c.addWidget(self.btn_atajos)
+
+        self.panel = QWidget()
+        self.panel.setObjectName("panelAtalos")
+        self.panel.setVisible(False)
+        self.panel.setStyleSheet("background: transparent;")
+        pl = QVBoxLayout()
+        pl.setContentsMargins(5, 5, 5, 5)
+        pl.setSpacing(3)
+        self.panel.setLayout(pl)
+
+        fila1 = QHBoxLayout()
+        fila1.addWidget(self._lbl("📸 Capturar", "lblAtajo"))
+        fila1.addStretch()
+        self.lbl_key_cap = self._lbl("F9", "keyBadge")
+        fila1.addWidget(self.lbl_key_cap)
+        self.btn_edit_cap = self._btn_edit()
+        self.btn_edit_cap.clicked.connect(lambda: self.iniciar_grabacion("cap"))
+        fila1.addWidget(self.btn_edit_cap)
+        pl.addLayout(fila1)
+
+        fila2 = QHBoxLayout()
+        fila2.addWidget(self._lbl("✕ Cerrar", "lblAtajo"))
+        fila2.addStretch()
+        self.lbl_key_close = self._lbl("F10", "keyBadge")
+        fila2.addWidget(self.lbl_key_close)
+        self.btn_edit_close = self._btn_edit()
+        self.btn_edit_close.clicked.connect(lambda: self.iniciar_grabacion("close"))
+        fila2.addWidget(self.btn_edit_close)
+        pl.addLayout(fila2)
+
+        fila3 = QHBoxLayout()
+        fila3.addWidget(self._lbl("👁 Ocultar/Mostrar", "lblAtajo"))
+        fila3.addStretch()
+        self.lbl_key_ocultar = self._lbl("F8", "keyBadge")
+        fila3.addWidget(self.lbl_key_ocultar)
+        self.btn_edit_ocultar = self._btn_edit()
+        self.btn_edit_ocultar.clicked.connect(lambda: self.iniciar_grabacion("ocultar"))
+        fila3.addWidget(self.btn_edit_ocultar)
+        pl.addLayout(fila3)
+
+        fila4 = QHBoxLayout()
+        fila4.addWidget(self._lbl("💀 Autodestrucción (mantener)", "lblAtajo"))
+        fila4.addStretch()
+        self.lbl_key_autodestruccion = self._lbl(self._nombre_tecla(self.atajo_autodestruccion), "keyBadge")
+        fila4.addWidget(self.lbl_key_autodestruccion)
+        self.btn_edit_autodestruccion = self._btn_edit()
+        self.btn_edit_autodestruccion.clicked.connect(lambda: self.iniciar_grabacion("autodestruccion"))
+        fila4.addWidget(self.btn_edit_autodestruccion)
+        pl.addLayout(fila4)
+
+        c.addWidget(self.panel)
+
+        # ── Footer ──
+        self.w_footer = QWidget()
+        self.w_footer.setStyleSheet("background: transparent;")
+        fl = QHBoxLayout(self.w_footer)
+        fl.setContentsMargins(0, 0, 0, 0)
+        self.lbl_uso = QLabel("Capturas restantes: --")
+        self.lbl_uso.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_uso.setObjectName("lblUso")
+        fl.addWidget(self.lbl_uso)
+        c.addWidget(self.w_footer)
+
+        self.aplicar_tema()
+        self._aplicar_personalizacion_visual()
+        self._restaurar_posicion()

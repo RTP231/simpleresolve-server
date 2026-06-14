@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+build/
+dist/
+.claude/
+
+# Logs y depuración
+*.log
+*_log.txt
+*_err*.txt
+
+# Datos sensibles / locales
+youtube_cookies.txt
+
+# SDK descargable, no necesario en el repo
+webview2_sdk/
