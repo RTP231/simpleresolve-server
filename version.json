@@ -1,0 +1,25 @@
+{
+    "version": "1.0.0",
+    "fecha": "2026-06-15",
+    "archivos": [
+        "SimpleHub.py",
+        "simple_downloader.py",
+        "interfaz.py",
+        "main.py",
+        "login.py",
+        "auth_manager.py",
+        "security.py",
+        "config.py",
+        "personalizacion.py",
+        "fondo_animado.py",
+        "captura.py",
+        "ia.py",
+        "simplepdf.py",
+        "actualizador.py",
+        "update_helper.py",
+        "anti_debug.py",
+        "hardware_id.py",
+        "integrity.py",
+        "_keys.py"
+    ]
+}

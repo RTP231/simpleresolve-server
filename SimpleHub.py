@@ -1,20 +1,29 @@
+import anti_debug  # noqa: F401  (verifica al importar; debe ir primero)
+
 import sys
 import os
 import json
 import base64
 import subprocess
 
+import integrity
+integrity.verificar_integridad_o_salir()
+
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QMessageBox, QDialog,
+    QFrame, QMessageBox, QLineEdit, QProgressBar, QDialog, QColorDialog,
+    QGraphicsDropShadowEffect,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve, QPoint
+from PyQt6.QtGui import QFont, QColor
 
 from config import SERVER_URL
 from security import create_session
-from login import LoginDialog
+from login import HiloLogin
+from fondo_animado import AnimacionFondoWidget, FondoVideoWidget, SeccionFondoAnimado
 import auth_manager
+import personalizacion
+import actualizador
 
 try:
     import keyring
@@ -22,15 +31,23 @@ except ImportError:
     keyring = None
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _SERVICE_NAME = "SimpleHub"
 
 _C_BG = '#0d0d0d'
-_C_PANEL = '#15131f'
-_C_BORDER = '#2a2840'
+_C_CARD = '#1a1a1a'
+_C_BORDER = '#2a2a2a'
 _C_TEXT = '#eaeaf5'
-_C_TEXT_SEC = '#9898b8'
-_C_ACCENT = '#7c6fff'
+_C_TEXT_SEC = '#888888'
+_C_ACCENT_DEFAULT = '#7c3aed'
+
+# Compatibilidad con nombres usados por el panel de login.
+_C_PANEL = _C_CARD
+
+PRESETS_ACCENT = ['#7c3aed', '#7c6fff', '#22c55e', '#eab308', '#ef4444', '#06b6d4']
 
 
 # ----------------------------------------------------------------------
@@ -113,37 +130,51 @@ class HiloVerificarSesion(QThread):
 class AppCard(QFrame):
     abrir = pyqtSignal()
 
-    def __init__(self, titulo, descripcion, version, emoji, parent=None):
+    def __init__(self, titulo, descripcion, emoji, accent, actualizado=True, parent=None):
         super().__init__(parent)
         self.setObjectName("appCard")
+        self._accent = accent
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 16, 16, 16)
-        lay.setSpacing(6)
+        lay.setContentsMargins(20, 20, 20, 20)
+        lay.setSpacing(8)
 
-        top = QHBoxLayout()
         lbl_emoji = QLabel(emoji)
-        lbl_emoji.setStyleSheet("font-size: 28px; background: transparent;")
-        top.addWidget(lbl_emoji)
-        top.addStretch()
-        self.lbl_estado = QLabel("✓ Actualizado")
-        self.lbl_estado.setStyleSheet("color: #22c55e; font-size: 10px; background: transparent;")
-        top.addWidget(self.lbl_estado)
-        lay.addLayout(top)
+        lbl_emoji.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_emoji.setStyleSheet("font-size: 40px; background: transparent;")
+        lay.addWidget(lbl_emoji)
 
         lbl_titulo = QLabel(titulo)
-        lbl_titulo.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        lbl_titulo.setStyleSheet(f"color: {_C_TEXT}; background: transparent;")
+        lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_titulo.setStyleSheet(
+            f"color: {_C_TEXT}; font-size: 18px; font-weight: bold; background: transparent;"
+        )
         lay.addWidget(lbl_titulo)
 
         lbl_desc = QLabel(descripcion)
+        lbl_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_desc.setWordWrap(True)
         lbl_desc.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
         lay.addWidget(lbl_desc)
 
-        lbl_version = QLabel(f"Versión {version}")
-        lbl_version.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 9px; background: transparent;")
-        lay.addWidget(lbl_version)
+        if actualizado:
+            self.lbl_estado = QLabel("✓ Actualizado")
+            self.lbl_estado.setStyleSheet(
+                "color: #22c55e; background: rgba(34,197,94,0.12); "
+                "border-radius: 8px; padding: 2px 10px; font-size: 9px;"
+            )
+        else:
+            self.lbl_estado = QLabel("⬆ Update disponible")
+            self.lbl_estado.setStyleSheet(
+                "color: #eab308; background: rgba(234,179,8,0.12); "
+                "border-radius: 8px; padding: 2px 10px; font-size: 9px;"
+            )
+        self.lbl_estado.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        fila_estado = QHBoxLayout()
+        fila_estado.addStretch()
+        fila_estado.addWidget(self.lbl_estado)
+        fila_estado.addStretch()
+        lay.addLayout(fila_estado)
 
         lay.addStretch()
 
@@ -152,40 +183,343 @@ class AppCard(QFrame):
         self.btn_abrir.clicked.connect(self.abrir.emit)
         lay.addWidget(self.btn_abrir)
 
+        sombra = QGraphicsDropShadowEffect(self)
+        sombra.setBlurRadius(24)
+        sombra.setOffset(0, 6)
+        sombra.setColor(QColor(0, 0, 0, 160))
+        self.setGraphicsEffect(sombra)
+
+        self._aplicar_estilo()
+
+    def _aplicar_estilo(self):
+        accent_hover = QColor(self._accent).lighter(120).name()
         self.setStyleSheet(f"""
             QFrame#appCard {{
-                background-color: {_C_PANEL};
-                border: 1px solid {_C_BORDER};
+                background-color: {_C_CARD};
+                border: 0.5px solid {_C_BORDER};
                 border-radius: 12px;
             }}
             QPushButton#btnAbrir {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #7c6fff, stop:1 #5a4fcf);
+                background-color: {self._accent};
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 9px;
+                font-weight: bold;
+            }}
+            QPushButton#btnAbrir:hover {{
+                background-color: {accent_hover};
+            }}
+            QPushButton#btnAbrir:disabled {{
+                background-color: {_C_BORDER};
+                color: #666666;
+            }}
+        """)
+
+    def set_accent(self, accent):
+        self._accent = accent
+        self._aplicar_estilo()
+
+
+class LoginPanel(QFrame):
+    """Formulario de login embebido (sin red al construirse), con el mismo
+    estilo glassmorphism oscuro de Simple Resolver. La verificación con el
+    servidor corre en un QThread (HiloLogin) para no bloquear la UI."""
+
+    login_exitoso = pyqtSignal(str)
+
+    def __init__(self, accent=_C_ACCENT_DEFAULT, parent=None):
+        super().__init__(parent)
+        self.setObjectName("loginPanel")
+        self._hilo = None
+        self._accent = accent
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addStretch()
+
+        card = QFrame()
+        card.setObjectName("loginCard")
+        card.setFixedWidth(280)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 20, 20, 20)
+        lay.setSpacing(10)
+
+        lbl_titulo = QLabel("SimpleHub")
+        lbl_titulo.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        lbl_titulo.setStyleSheet(f"color: {_C_TEXT}; background: transparent;")
+        lay.addWidget(lbl_titulo)
+
+        lbl_sub = QLabel("Inicia sesión para continuar")
+        lbl_sub.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
+        lay.addWidget(lbl_sub)
+
+        lay.addSpacing(4)
+
+        lbl_email = QLabel("Email")
+        lbl_email.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
+        lay.addWidget(lbl_email)
+
+        self.inp_email = QLineEdit()
+        self.inp_email.setPlaceholderText("correo@ejemplo.com")
+        self.inp_email.setObjectName("inputField")
+        lay.addWidget(self.inp_email)
+
+        lbl_pass = QLabel("Contraseña")
+        lbl_pass.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
+        lay.addWidget(lbl_pass)
+
+        self.inp_pass = QLineEdit()
+        self.inp_pass.setEchoMode(QLineEdit.EchoMode.Password)
+        self.inp_pass.setPlaceholderText("••••••••")
+        self.inp_pass.setObjectName("inputField")
+        self.inp_pass.returnPressed.connect(self._on_submit)
+        lay.addWidget(self.inp_pass)
+
+        self.lbl_error = QLabel("")
+        self.lbl_error.setStyleSheet("color: #ff6b8a; font-size: 10px; background: transparent;")
+        self.lbl_error.setWordWrap(True)
+        self.lbl_error.setVisible(False)
+        lay.addWidget(self.lbl_error)
+
+        self.btn_login = QPushButton("Iniciar sesión")
+        self.btn_login.setObjectName("btnSubmit")
+        self.btn_login.clicked.connect(self._on_submit)
+        lay.addWidget(self.btn_login)
+
+        self._card = card
+        self._aplicar_estilo()
+
+        row = QHBoxLayout()
+        row.addStretch()
+        row.addWidget(card)
+        row.addStretch()
+        outer.addLayout(row)
+        outer.addStretch()
+
+    def _aplicar_estilo(self):
+        accent_hover = QColor(self._accent).lighter(120).name()
+        self._card.setStyleSheet(f"""
+            QFrame#loginCard {{
+                background-color: {_C_CARD};
+                border: 0.5px solid {_C_BORDER};
+                border-radius: 12px;
+            }}
+            QLineEdit#inputField {{
+                background: rgba(255,255,255,0.07);
+                border: 1px solid rgba(124,111,255,0.35);
+                border-radius: 7px;
+                padding: 6px 10px;
+                color: {_C_TEXT};
+                font-size: 12px;
+                selection-background-color: rgba(124,111,255,0.4);
+            }}
+            QLineEdit#inputField:focus {{
+                border: 1px solid {self._accent};
+                background: rgba(255,255,255,0.1);
+            }}
+            QPushButton#btnSubmit {{
+                background-color: {self._accent};
                 color: white;
                 border: none;
                 border-radius: 7px;
                 padding: 8px;
                 font-weight: bold;
+                font-size: 12px;
             }}
-            QPushButton#btnAbrir:disabled {{
-                background: {_C_BORDER};
+            QPushButton#btnSubmit:hover {{
+                background-color: {accent_hover};
+            }}
+            QPushButton#btnSubmit:disabled {{
+                background-color: {_C_BORDER};
                 color: #55547a;
             }}
         """)
 
+    def _on_submit(self):
+        email = self.inp_email.text().strip()
+        password = self.inp_pass.text()
+
+        if not (email and password):
+            self._set_error("Completa todos los campos.")
+            return
+
+        bloqueado, restante = auth_manager.verificar_bloqueo()
+        if bloqueado:
+            minutos = max(1, restante // 60)
+            self._set_error(f"Demasiados intentos fallidos. Intenta de nuevo en {minutos} min.")
+            return
+
+        self._set_error('')
+        self.btn_login.setEnabled(False)
+        self.btn_login.setText("Conectando...")
+
+        self._hilo = HiloLogin(email, password)
+        self._hilo.terminado.connect(self._on_done)
+        self._hilo.start()
+
+    def _on_done(self, exito, token, error):
+        self.btn_login.setEnabled(True)
+        self.btn_login.setText("Iniciar sesión")
+        if exito:
+            auth_manager.registrar_intento_exitoso()
+            self.login_exitoso.emit(token)
+            return
+        auth_manager.registrar_intento_fallido()
+        self._set_error(error)
+
+    def _set_error(self, msg):
+        if msg:
+            self.lbl_error.setText(msg)
+            self.lbl_error.setVisible(True)
+            return
+        self.lbl_error.setVisible(False)
+
+
+class PersonalizacionPanel(QDialog):
+    """Panel ligero de personalización: color de acento y fondo animado.
+    Comparte el archivo de configuración (personalizacion.json) con Simple
+    Resolver, así ambas apps usan el mismo tema."""
+
+    def __init__(self, ventana, parent=None):
+        super().__init__(parent)
+        self.ventana = ventana
+        self.setWindowTitle("Personalización")
+        self.setFixedWidth(280)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {_C_CARD};
+                border: 0.5px solid {_C_BORDER};
+                border-radius: 10px;
+            }}
+            QLabel {{ color: {_C_TEXT_SEC}; }}
+            QPushButton#btnHeader {{
+                background: transparent;
+                border: none;
+                color: {_C_TEXT_SEC};
+                font-size: 12px;
+                border-radius: 5px;
+                padding: 4px;
+            }}
+            QPushButton#btnHeader:hover {{
+                background: rgba(255,255,255,0.08);
+                color: {_C_TEXT};
+            }}
+            QPushButton#btnHeader:checked {{
+                background: rgba(124,58,237,0.25);
+                color: {_C_TEXT};
+            }}
+            QPushButton {{
+                background-color: {_C_BORDER};
+                color: {_C_TEXT};
+                border: none;
+                border-radius: 6px;
+                padding: 6px;
+            }}
+            QPushButton:hover {{
+                background-color: #3a3a3a;
+            }}
+            QSlider::groove:horizontal {{
+                background-color: {_C_BORDER};
+                height: 4px;
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background-color: {_C_ACCENT_DEFAULT};
+                width: 14px;
+                height: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background-color: {_C_ACCENT_DEFAULT};
+                border-radius: 2px;
+            }}
+        """)
+
+        lay = QVBoxLayout(self)
+        lay.setSpacing(8)
+
+        lay.addWidget(self._titulo("Color de acento"))
+        fila = QHBoxLayout()
+        for color in PRESETS_ACCENT:
+            fila.addWidget(self._swatch(color))
+        lay.addLayout(fila)
+
+        btn_custom = QPushButton("Personalizado...")
+        btn_custom.clicked.connect(self._elegir_color_custom)
+        lay.addWidget(btn_custom)
+
+        self.seccion_fondo = SeccionFondoAnimado(ventana, ventana.config_personalizacion)
+        lay.addWidget(self.seccion_fondo)
+
+        btn_restaurar = QPushButton("Restaurar valores predeterminados")
+        btn_restaurar.clicked.connect(self._restaurar)
+        lay.addWidget(btn_restaurar)
+
+    def _titulo(self, texto):
+        l = QLabel(texto)
+        l.setStyleSheet(f"font-weight: bold; color: {_C_TEXT};")
+        return l
+
+    def _swatch(self, color):
+        b = QPushButton()
+        b.setFixedSize(28, 28)
+        b.setStyleSheet(f"background-color: {color}; border-radius: 4px; border: 1px solid rgba(128,128,128,0.5);")
+        b.clicked.connect(lambda _checked=False, c=color: self.ventana.set_color_botones(c))
+        return b
+
+    def _elegir_color_custom(self):
+        actual = self.ventana.config_personalizacion.get('color_botones') or _C_ACCENT_DEFAULT
+        color = QColorDialog.getColor(QColor(actual), self, "Color de acento")
+        if color.isValid():
+            self.ventana.set_color_botones(color.name())
+
+    def _restaurar(self):
+        self.ventana.restaurar_personalizacion_defaults()
+        self.seccion_fondo.actualizar(self.ventana.config_personalizacion)
+
 
 class SimpleHub(QWidget):
+    ANCHO = 600
+    ALTO = 400
+
     def __init__(self):
         super().__init__()
         self.token = None
         self._hilo_verificar = None
         self._hilo_abrir = None
+        self._fade_hecho = False
+        self._anims = []
+
+        self.config_personalizacion = personalizacion.cargar_config()
+        self._accent = self.config_personalizacion.get('color_botones') or _C_ACCENT_DEFAULT
 
         self.setWindowTitle("SimpleHub")
-        self.setMinimumSize(480, 360)
+        self.setMinimumSize(self.ANCHO, self.ALTO)
+
         self.setStyleSheet(
-            f"QWidget {{ background-color: {_C_BG}; color: {_C_TEXT}; "
-            "font-family: 'Segoe UI', sans-serif; }"
+            f"QWidget {{ color: {_C_TEXT}; font-family: 'Segoe UI', sans-serif; }}"
+            f"#simpleHubRoot {{ background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            f" stop:0 #111111, stop:1 #0a0a0a); }}"
         )
+        self.setObjectName("simpleHubRoot")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        # Fondo animado liviano (mismo módulo que Simple Resolver), siempre
+        # en modo rendimiento (<=24fps aprox.) para no afectar el resto de la app.
+        self.fondo_animado = AnimacionFondoWidget(self)
+        self.fondo_video = FondoVideoWidget(self)
+        self.fondo_animado.lower()
+        self.fondo_video.lower()
+        self._aplicar_fondo_animado()
+
+        self.resize(self.ANCHO, self.ALTO)
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - self.ANCHO) // 2
+        y = (screen.height() - self.ALTO) // 2
+        self.move(x, y)
 
         self._lay = QVBoxLayout(self)
         self._lay.setContentsMargins(24, 24, 24, 24)
@@ -195,36 +529,207 @@ class SimpleHub(QWidget):
         self._timer_sesion.setInterval(30 * 60 * 1000)
         self._timer_sesion.timeout.connect(self._verificar_sesion_periodica)
 
-        self._iniciar()
+        # Verificar actualizaciones disponibles en GitHub antes del login.
+        # Si el usuario confirma, actualizador.py lanza update_helper.py y
+        # cierra la app (sys.exit), por lo que el resto de __init__ no se
+        # llega a ejecutar en ese caso.
+        info_actualizacion = actualizador.verificar_actualizacion()
+        if info_actualizacion:
+            actualizador.mostrar_dialogo_actualizacion(info_actualizacion, self._accent, self)
+
+        # Fade-in de 300ms al mostrar la ventana.
+        self.setWindowOpacity(0.0)
+
+        # Sin token guardado -> login inmediato, sin esperar nada.
+        # Con token guardado -> pantalla "Verificando sesión..." mientras
+        # la verificación (red) corre en un QThread después de mostrar la ventana.
+        self.token = _cargar_token()
+        if self.token:
+            self._mostrar_verificando()
+            QTimer.singleShot(0, self._verificar_inicial)
+        else:
+            self._mostrar_login()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._fade_hecho:
+            self._fade_hecho = True
+            anim = QPropertyAnimation(self, b"windowOpacity", self)
+            anim.setDuration(300)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.start()
+            self._anims.append(anim)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        r = self.rect()
+        self.fondo_animado.setGeometry(r)
+        self.fondo_video.setGeometry(r)
+        self.fondo_animado.lower()
+        self.fondo_video.lower()
+
+    # ------------------------------------------------------------------
+    # Personalización (compartida con Simple Resolver vía personalizacion.json)
+    # ------------------------------------------------------------------
+    def _aplicar_fondo_animado(self):
+        cfg = self.config_personalizacion
+        self.fondo_animado.set_color(self._accent)
+        self.fondo_animado.set_velocidad(cfg.get('fondo_animado_velocidad', 'normal'))
+        self.fondo_animado.set_opacidad(cfg.get('fondo_animado_opacidad', 30))
+        # SimpleHub: siempre en modo rendimiento (intervalo mayor -> <=24fps).
+        self.fondo_animado.set_rendimiento(True)
+        self.fondo_video.set_opacidad(cfg.get('fondo_video_opacidad', 40))
+        self.fondo_video.set_calidad(cfg.get('fondo_video_calidad', 'alta'))
+        self.fondo_video.set_rendimiento(True)
+
+        activo = cfg.get('fondo_animado_activo', False)
+        video = cfg.get('video_fondo')
+        if activo and video:
+            self.fondo_animado.set_activo(False)
+            self.fondo_video.set_video(video)
+            return
+        if activo:
+            self.fondo_video.set_video(None)
+            self.fondo_animado.set_tipo(cfg.get('fondo_animado_tipo', 'particulas'))
+            self.fondo_animado.set_activo(True)
+            return
+        self.fondo_animado.set_activo(False)
+        self.fondo_video.set_video(None)
+
+    def set_color_botones(self, color_hex):
+        self.config_personalizacion['color_botones'] = color_hex
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._accent = color_hex or _C_ACCENT_DEFAULT
+        self._aplicar_fondo_animado()
+        self._refrescar_vista()
+
+    def set_fondo_animado_activo(self, activo):
+        self.config_personalizacion['fondo_animado_activo'] = activo
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._aplicar_fondo_animado()
+
+    def set_fondo_animado_tipo(self, tipo):
+        self.config_personalizacion['fondo_animado_tipo'] = tipo
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._aplicar_fondo_animado()
+
+    def set_fondo_animado_velocidad(self, velocidad):
+        self.config_personalizacion['fondo_animado_velocidad'] = velocidad
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._aplicar_fondo_animado()
+
+    def set_fondo_animado_opacidad(self, valor):
+        self.config_personalizacion['fondo_animado_opacidad'] = valor
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._aplicar_fondo_animado()
+
+    def set_fondo_animado_rendimiento(self, activo):
+        self.config_personalizacion['fondo_animado_rendimiento'] = activo
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._aplicar_fondo_animado()
+
+    def set_video_fondo(self, ruta):
+        self.config_personalizacion['video_fondo'] = ruta
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._aplicar_fondo_animado()
+
+    def set_fondo_video_opacidad(self, valor):
+        self.config_personalizacion['fondo_video_opacidad'] = valor
+        personalizacion.guardar_config(self.config_personalizacion)
+        self.fondo_video.set_opacidad(valor)
+
+    def set_fondo_video_calidad(self, calidad):
+        self.config_personalizacion['fondo_video_calidad'] = calidad
+        personalizacion.guardar_config(self.config_personalizacion)
+        self.fondo_video.set_calidad(calidad)
+
+    def set_fondo_panel_opacidad(self, valor):
+        self.config_personalizacion['fondo_panel_opacidad'] = valor
+        personalizacion.guardar_config(self.config_personalizacion)
+
+    def restaurar_personalizacion_defaults(self):
+        self.config_personalizacion = personalizacion.DEFAULTS.copy()
+        personalizacion.guardar_config(self.config_personalizacion)
+        self._accent = _C_ACCENT_DEFAULT
+        self._aplicar_fondo_animado()
+        self._refrescar_vista()
+
+    def _refrescar_vista(self):
+        if self.token:
+            self._mostrar_principal()
+        elif hasattr(self, 'login_panel'):
+            self._mostrar_login()
+
+    def _abrir_personalizacion(self):
+        dlg = PersonalizacionPanel(self, self)
+        dlg.exec()
 
     # ------------------------------------------------------------------
     # Sesión
     # ------------------------------------------------------------------
-    def _iniciar(self):
-        self.token = _cargar_token()
-        if self.token:
-            valido, mensaje = _verificar_token_sync(self.token)
-            if valido:
-                auth_manager.limpiar_marca_sesion_invalida()
-                self._mostrar_principal()
-                self._timer_sesion.start()
-                return
-            _borrar_token_local()
-            self.token = None
-            if mensaje:
-                QMessageBox.warning(self, "Sesión cerrada", mensaje)
+    def _verificar_inicial(self):
+        self._hilo_verificar = HiloVerificarSesion(self.token, self)
+        self._hilo_verificar.resultado.connect(self._on_verificacion_inicial)
+        self._hilo_verificar.start()
+
+    def _on_verificacion_inicial(self, valido, mensaje):
+        if valido:
+            auth_manager.limpiar_marca_sesion_invalida()
+            self._mostrar_principal()
+            self._timer_sesion.start()
+            return
+        _borrar_token_local()
+        self.token = None
+        if mensaje:
+            QMessageBox.warning(self, "Sesión cerrada", mensaje)
         self._mostrar_login()
+
+    def _mostrar_verificando(self):
+        self._limpiar_layout()
+        self._lay.addStretch()
+
+        lbl = QLabel("Verificando sesión...")
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 12px; background: transparent;")
+        self._lay.addWidget(lbl)
+
+        spinner = QProgressBar()
+        spinner.setRange(0, 0)
+        spinner.setTextVisible(False)
+        spinner.setFixedWidth(220)
+        spinner.setFixedHeight(8)
+        spinner.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {_C_CARD};
+                border: 0.5px solid {_C_BORDER};
+                border-radius: 4px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {self._accent};
+                border-radius: 4px;
+            }}
+        """)
+        row = QHBoxLayout()
+        row.addStretch()
+        row.addWidget(spinner)
+        row.addStretch()
+        self._lay.addLayout(row)
+
+        self._lay.addStretch()
 
     def _mostrar_login(self):
         self._limpiar_layout()
-        dlg = LoginDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.token:
-            self.token = dlg.token
-            _guardar_token(self.token)
-            self._mostrar_principal()
-            self._timer_sesion.start()
-        else:
-            self.token = None
+        self.login_panel = LoginPanel(self._accent, self)
+        self.login_panel.login_exitoso.connect(self._on_login_exitoso)
+        self._lay.addWidget(self.login_panel)
+
+    def _on_login_exitoso(self, token):
+        self.token = token
+        _guardar_token(self.token)
+        self._mostrar_principal()
+        self._timer_sesion.start()
 
     def _verificar_sesion_periodica(self):
         if self._hilo_verificar and self._hilo_verificar.isRunning():
@@ -248,8 +753,6 @@ class SimpleHub(QWidget):
         if mensaje:
             QMessageBox.warning(self, "Sesión cerrada", mensaje)
         self._mostrar_login()
-        if not self.token:
-            self.close()
 
     # ------------------------------------------------------------------
     # Interfaz
@@ -285,27 +788,36 @@ class SimpleHub(QWidget):
         avatar.setFixedSize(40, 40)
         avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         avatar.setStyleSheet(
-            f"background-color: {_C_ACCENT}; color: white; border-radius: 20px; "
+            f"background-color: {self._accent}; color: white; border-radius: 20px; "
             "font-weight: bold; font-size: 16px;"
         )
         header.addWidget(avatar)
 
         info = QVBoxLayout()
         info.setSpacing(0)
-        lbl_titulo = QLabel("SimpleHub")
-        lbl_titulo.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-        lbl_titulo.setStyleSheet("background: transparent;")
-        info.addWidget(lbl_titulo)
         lbl_usuario = QLabel(_decodificar_email(self.token) or "Usuario")
-        lbl_usuario.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
+        lbl_usuario.setStyleSheet(f"color: {_C_TEXT}; font-size: 13px; font-weight: bold; background: transparent;")
         info.addWidget(lbl_usuario)
+        lbl_sub = QLabel("SimpleHub")
+        lbl_sub.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
+        info.addWidget(lbl_sub)
         header.addLayout(info)
         header.addStretch()
+
+        btn_personalizar = QPushButton("🎨")
+        btn_personalizar.setFixedSize(34, 34)
+        btn_personalizar.setToolTip("Personalizar")
+        btn_personalizar.setStyleSheet(
+            f"background-color: transparent; border: 0.5px solid {_C_BORDER}; "
+            "border-radius: 7px; font-size: 14px;"
+        )
+        btn_personalizar.clicked.connect(self._abrir_personalizacion)
+        header.addWidget(btn_personalizar)
 
         btn_logout = QPushButton("Cerrar sesión")
         btn_logout.setStyleSheet(
             f"background-color: transparent; color: {_C_TEXT_SEC}; "
-            f"border: 1px solid {_C_BORDER}; border-radius: 7px; padding: 6px 12px;"
+            f"border: 0.5px solid {_C_BORDER}; border-radius: 7px; padding: 6px 12px;"
         )
         btn_logout.clicked.connect(lambda: self._cerrar_sesion())
         header.addWidget(btn_logout)
@@ -318,7 +830,7 @@ class SimpleHub(QWidget):
         self.card_resolver = AppCard(
             "Simple Resolver",
             "Asistente de respuestas con IA mediante captura de pantalla.",
-            "2.0", "🧠",
+            "🧠", self._accent,
         )
         self.card_resolver.abrir.connect(lambda: self._abrir_app('resolver'))
         cards_row.addWidget(self.card_resolver)
@@ -326,13 +838,28 @@ class SimpleHub(QWidget):
         self.card_downloader = AppCard(
             "Simple Downloader",
             "Navegador con descargador de videos integrado.",
-            "2.0", "⬇️",
+            "⬇️", self._accent,
         )
         self.card_downloader.abrir.connect(lambda: self._abrir_app('downloader'))
         cards_row.addWidget(self.card_downloader)
 
         self._lay.addLayout(cards_row)
         self._lay.addStretch()
+
+        QTimer.singleShot(0, self._animar_cards)
+
+    def _animar_cards(self):
+        self._anims = [a for a in self._anims if a.state() == QPropertyAnimation.State.Running]
+        for card in (self.card_resolver, self.card_downloader):
+            destino = card.pos()
+            card.move(destino.x(), destino.y() + 24)
+            anim = QPropertyAnimation(card, b"pos", self)
+            anim.setDuration(300)
+            anim.setStartValue(QPoint(destino.x(), destino.y() + 24))
+            anim.setEndValue(destino)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.start()
+            self._anims.append(anim)
 
     def _inicial_usuario(self):
         email = _decodificar_email(self.token)
@@ -360,6 +887,13 @@ class SimpleHub(QWidget):
             self._cerrar_sesion(mensaje or "Tu sesión ha expirado.")
             return
 
+        if getattr(sys, 'frozen', False):
+            # Compilado: SimpleHub.exe lanza el .exe de cada app por separado.
+            nombre_exe = 'SimpleResolver.exe' if app_key == 'resolver' else 'SimpleDownloader.exe'
+            ruta = os.path.join(BASE_DIR, nombre_exe)
+            subprocess.Popen([ruta, '--token', self.token], cwd=BASE_DIR)
+            return
+
         if app_key == 'resolver':
             script = os.path.join(BASE_DIR, 'main.py')
         else:
@@ -369,8 +903,15 @@ class SimpleHub(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    hub = SimpleHub()
-    if not hub.token:
-        sys.exit(0)
-    hub.show()
-    sys.exit(app.exec())
+    try:
+        hub = SimpleHub()
+        hub.show()
+        hub.raise_()
+        hub.activateWindow()
+        sys.exit(app.exec())
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+        QMessageBox.critical(None, "Error en SimpleHub", traceback.format_exc())
+        raise

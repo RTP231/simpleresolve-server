@@ -1,4 +1,10 @@
+import anti_debug  # noqa: F401  (verifica al importar; debe ir primero)
+
 import sys
+
+import integrity
+integrity.verificar_integridad_o_salir()
+
 from PyQt6.QtWidgets import QApplication
 from interfaz import SimpleResolve
 import auth_manager

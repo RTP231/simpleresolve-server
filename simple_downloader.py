@@ -9,6 +9,7 @@ Uso desde la app principal:
     self.downloader.show()
 """
 import os
+import sys
 import subprocess
 
 import json
@@ -113,8 +114,13 @@ _TIKTOK_HTTP_HEADERS = {
     'sec-ch-ua-platform': '"Android"',
 }
 
-_YOUTUBE_COOKIES_PATH = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
-_TIKTOK_COOKIES_PATH = os.path.join(os.path.dirname(__file__), 'temp_tiktok_cookies.txt')
+if getattr(sys, 'frozen', False):
+    _APP_DIR = os.path.dirname(sys.executable)
+else:
+    _APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+_YOUTUBE_COOKIES_PATH = os.path.join(_APP_DIR, 'youtube_cookies.txt')
+_TIKTOK_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_tiktok_cookies.txt')
 
 
 def _get_cookies_file():
@@ -1411,7 +1417,7 @@ class SimpleDownloaderWindow(QWidget):
 
         self.lbl_incognito_badge = QLabel("👻 Incógnito")
         self.lbl_incognito_badge.setStyleSheet(
-            f"color: #a78bfa; font-weight: bold; background: transparent; padding: 0 6px;"
+            "color: #a78bfa; font-weight: bold; background: transparent; padding: 0 6px;"
         )
         self.lbl_incognito_badge.setVisible(False)
 
@@ -2647,10 +2653,6 @@ class SimpleDownloaderWindow(QWidget):
         url = self._get_download_url()
         if not url:
             url = self.url_bar.text().strip()
-
-        view = self._current_webview()
-        print(f"[DEBUG] URL a descargar: {url}")
-        print(f"[DEBUG] URL de la página actual: {view.current_url() if view is not None else 'sin navegador'}")
 
         if not _es_url_valida(url):
             QMessageBox.warning(self, "URL inválida", "Ingresa una URL válida (http:// o https://).")

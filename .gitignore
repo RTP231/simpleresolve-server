@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 build/
 dist/
+*.spec
 .claude/
 
 # Logs y depuración
@@ -14,3 +15,6 @@ youtube_cookies.txt
 
 # SDK descargable, no necesario en el repo
 webview2_sdk/
+
+# Archivos temporales de auto-actualizacion
+*.new

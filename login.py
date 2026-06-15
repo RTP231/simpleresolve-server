@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QWidget
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
 from PyQt6.QtGui import QPainter, QBrush, QColor, QPen, QLinearGradient, QPainterPath, QFont
 from config import SERVER_URL
@@ -39,6 +39,14 @@ class LoginDialog(QDialog):
         self._drag_pos = QPoint()
         self._hilo = None
         self._initUI()
+        self._centrar_en_pantalla()
+
+    def _centrar_en_pantalla(self):
+        self.adjustSize()
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - self.width()) // 2
+        y = (screen.height() - self.height()) // 2
+        self.move(x, y)
 
     def _initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
@@ -164,6 +172,12 @@ class LoginDialog(QDialog):
             self._set_error("Completa todos los campos.")
             return
 
+        bloqueado, restante = auth_manager.verificar_bloqueo()
+        if bloqueado:
+            minutos = max(1, restante // 60)
+            self._set_error(f"Demasiados intentos fallidos. Intenta de nuevo en {minutos} min.")
+            return
+
         self._set_error('')
         self.btn_login.setEnabled(False)
         self.btn_login.setText("Conectando...")
@@ -176,10 +190,12 @@ class LoginDialog(QDialog):
         self.btn_login.setEnabled(True)
         self.btn_login.setText("Iniciar sesión")
         if exito:
+            auth_manager.registrar_intento_exitoso()
             auth_manager.guardar_token(token)
             self.token = token
             self.accept()
             return
+        auth_manager.registrar_intento_fallido()
         self._set_error(error)
 
     def _set_error(self, msg):

@@ -1,5 +1,15 @@
-# URL del backend (simpleresolve-server). Apuntar al deploy real del servidor.
-SERVER_URL = "http://127.0.0.1:8000"
+# URL del backend (simpleresolve-server). Deploy real en Railway.
+# Guardada cifrada para que no quede como texto plano en el ejecutable
+# (ver _keys.py para una nota sobre el alcance real de esta protección).
+from cryptography.fernet import Fernet
+from _keys import OBFUSCATION_KEY
+
+_ENC_SERVER_URL = (
+    b"gAAAAABqMGksPZ4svOVkEO1uAzXE4-_mC7Sykd56uYjDMNW6-fkdRr-si8A0Cr5rrFxLQeYgsnuxlqP-"
+    b"MdynUIpeFSB67-6YHdjI8LcNjKKJCjXOjsng-LKlWXzFgqKYFmi6GsoQ8SImnOykd17q9qzEaPzFklk4Lg=="
+)
+
+SERVER_URL = Fernet(OBFUSCATION_KEY).decrypt(_ENC_SERVER_URL).decode()
 
 API_KEY = "Key Borrada "
 

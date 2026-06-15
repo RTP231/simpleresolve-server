@@ -3,9 +3,9 @@ import sys
 import threading
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-                             QLabel, QSlider, QColorDialog, QGraphicsBlurEffect,
+                             QLabel, QSlider, QColorDialog,
                              QDialog, QFileDialog, QMenu, QMessageBox, QApplication)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QTimer, QMetaObject, Q_ARG
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QTimer
 from PyQt6.QtGui import (QFont, QColor, QPainter, QPen, QBrush, QLinearGradient,
                          QPainterPath, QPixmap, QIcon, QRegion)
 from pynput import mouse as pynput_mouse, keyboard as pynput_kb

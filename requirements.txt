@@ -3,6 +3,7 @@ PyQt6-Qt6
 pillow
 pynput
 requests
+cryptography
 # Para soporte TikTok actualizado: pip install -U --pre "yt-dlp[default]"
 yt-dlp[default]
 imageio-ffmpeg
