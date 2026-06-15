@@ -481,6 +481,109 @@ class PersonalizacionPanel(QDialog):
         self.seccion_fondo.actualizar(self.ventana.config_personalizacion)
 
 
+class DialogoDescargaExe(QDialog):
+    """Descarga un .exe desde GitHub Releases con barra de progreso.
+    Se cierra automáticamente al terminar (accept = éxito, reject = error).
+    No se puede cerrar manualmente mientras descarga."""
+
+    def __init__(self, nombre_exe, accent=_C_ACCENT_DEFAULT, parent=None):
+        super().__init__(parent)
+        self.nombre_exe = nombre_exe
+        self._error_msg = ''
+        self._hilo = None
+
+        self.setWindowTitle("Descargando componente")
+        self.setFixedWidth(340)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.CustomizeWindowHint
+            | Qt.WindowType.WindowTitleHint
+        )
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {_C_CARD};
+                border: 0.5px solid {_C_BORDER};
+                border-radius: 10px;
+            }}
+            QLabel {{ color: {_C_TEXT}; background: transparent; }}
+            QProgressBar {{
+                background-color: {_C_BG};
+                border: 0.5px solid {_C_BORDER};
+                border-radius: 4px;
+                text-align: center;
+                color: {_C_TEXT};
+            }}
+            QProgressBar::chunk {{
+                background-color: {accent};
+                border-radius: 4px;
+            }}
+        """)
+
+        lay = QVBoxLayout(self)
+        lay.setSpacing(12)
+        lay.setContentsMargins(20, 20, 20, 20)
+
+        lbl_titulo = QLabel(f"Descargando {nombre_exe}")
+        lbl_titulo.setStyleSheet("font-size: 13px; font-weight: bold;")
+        lay.addWidget(lbl_titulo)
+
+        lbl_desc = QLabel(
+            "Este componente se descarga automáticamente\n"
+            "la primera vez. Por favor, espere..."
+        )
+        lbl_desc.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 11px;")
+        lay.addWidget(lbl_desc)
+
+        self.barra = QProgressBar()
+        self.barra.setRange(0, 100)
+        self.barra.setValue(0)
+        lay.addWidget(self.barra)
+
+        self.lbl_estado = QLabel("Iniciando descarga...")
+        self.lbl_estado.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px;")
+        lay.addWidget(self.lbl_estado)
+
+        QTimer.singleShot(0, self._iniciar)
+
+    def _iniciar(self):
+        url = f"{actualizador.GITHUB_RELEASES}/{self.nombre_exe}"
+        self._hilo = actualizador.HiloDescargaActualizacion(
+            [(self.nombre_exe, url)], self
+        )
+        self._hilo.progreso.connect(self._on_progreso)
+        self._hilo.terminado.connect(self._on_terminado)
+        self._hilo.start()
+
+    def _on_progreso(self, pct):
+        self.barra.setValue(pct)
+        self.lbl_estado.setText(f"Descargando... {pct}%")
+
+    def _on_terminado(self, exito, error):
+        if not exito:
+            self._error_msg = error
+            self.reject()
+            return
+
+        nuevo = os.path.join(actualizador.BASE_DIR, f"{self.nombre_exe}.new")
+        destino = os.path.join(actualizador.BASE_DIR, self.nombre_exe)
+        try:
+            if os.path.exists(destino):
+                os.remove(destino)
+            os.rename(nuevo, destino)
+            self.lbl_estado.setText("Completado.")
+            self.accept()
+        except OSError as e:
+            self._error_msg = str(e)
+            self.reject()
+
+    def closeEvent(self, event):
+        if self._hilo and self._hilo.isRunning():
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
+
 class SimpleHub(QWidget):
     ANCHO = 600
     ALTO = 400
@@ -888,17 +991,41 @@ class SimpleHub(QWidget):
             return
 
         if getattr(sys, 'frozen', False):
-            # Compilado: SimpleHub.exe lanza el .exe de cada app por separado.
             nombre_exe = 'SimpleResolver.exe' if app_key == 'resolver' else 'SimpleDownloader.exe'
             ruta = os.path.join(BASE_DIR, nombre_exe)
-            subprocess.Popen([ruta, '--token', self.token], cwd=BASE_DIR)
+
+            if not os.path.exists(ruta):
+                dlg = DialogoDescargaExe(nombre_exe, self._accent, self)
+                if dlg.exec() != QDialog.DialogCode.Accepted:
+                    err = dlg._error_msg or 'Descarga cancelada o fallida.'
+                    QMessageBox.critical(
+                        self, "Error al descargar",
+                        f"No se pudo descargar {nombre_exe}:\n{err}"
+                    )
+                    return
+
+            try:
+                subprocess.Popen([ruta, '--token', self.token], cwd=BASE_DIR)
+            except FileNotFoundError:
+                QMessageBox.critical(
+                    self, "Archivo no encontrado",
+                    f"No se encontró {nombre_exe} en:\n{BASE_DIR}"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error al iniciar",
+                    f"No se pudo abrir {nombre_exe}:\n{e}"
+                )
             return
 
         if app_key == 'resolver':
             script = os.path.join(BASE_DIR, 'main.py')
         else:
             script = os.path.join(BASE_DIR, '_run_downloader.py')
-        subprocess.Popen([sys.executable, script, '--token', self.token], cwd=BASE_DIR)
+        try:
+            subprocess.Popen([sys.executable, script, '--token', self.token], cwd=BASE_DIR)
+        except Exception as e:
+            QMessageBox.critical(self, "Error al iniciar", f"No se pudo abrir la app:\n{e}")
 
 
 if __name__ == "__main__":
