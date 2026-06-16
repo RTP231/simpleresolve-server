@@ -44,7 +44,8 @@ IGNORE_URL_PATTERNS = [
     'googleapis.com',
 ]
 
-_SDK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'webview2_sdk', 'assemblies')
+_BASE_DIR = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+_SDK_DIR = os.path.join(_BASE_DIR, 'webview2_sdk', 'assemblies')
 
 _WEBVIEW2_OK = True
 _WEBVIEW2_IMPORT_ERROR = ''
