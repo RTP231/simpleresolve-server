@@ -6,6 +6,7 @@ import json
 import base64
 import subprocess
 
+import requests
 import integrity
 integrity.verificar_integridad_o_salir()
 
@@ -481,6 +482,39 @@ class PersonalizacionPanel(QDialog):
         self.seccion_fondo.actualizar(self.ventana.config_personalizacion)
 
 
+class HiloDescargaExe(QThread):
+    """Descarga un único exe con progreso por chunk."""
+    progreso = pyqtSignal(int, str)   # (porcentaje, "X MB / Y MB")
+    terminado = pyqtSignal(bool, str)
+
+    def __init__(self, url, destino_tmp, parent=None):
+        super().__init__(parent)
+        self.url = url
+        self.destino_tmp = destino_tmp
+
+    def run(self):
+        try:
+            r = requests.get(self.url, stream=True, timeout=60)
+            if r.status_code != 200:
+                self.terminado.emit(False, f"HTTP {r.status_code}")
+                return
+            total = int(r.headers.get('content-length', 0))
+            descargado = 0
+            with open(self.destino_tmp, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        descargado += len(chunk)
+                        if total > 0:
+                            pct = int(descargado / total * 100)
+                            mb_d = descargado // (1024 * 1024)
+                            mb_t = total // (1024 * 1024)
+                            self.progreso.emit(pct, f"{mb_d} MB / {mb_t} MB")
+            self.terminado.emit(True, '')
+        except Exception as e:
+            self.terminado.emit(False, str(e))
+
+
 class DialogoDescargaExe(QDialog):
     """Descarga un .exe desde GitHub Releases con barra de progreso.
     Se cierra automáticamente al terminar (accept = éxito, reject = error).
@@ -548,16 +582,15 @@ class DialogoDescargaExe(QDialog):
 
     def _iniciar(self):
         url = f"{actualizador.GITHUB_RELEASES}/{self.nombre_exe}"
-        self._hilo = actualizador.HiloDescargaActualizacion(
-            [(self.nombre_exe, url)], self
-        )
+        destino_tmp = os.path.join(actualizador.BASE_DIR, f"{self.nombre_exe}.new")
+        self._hilo = HiloDescargaExe(url, destino_tmp, self)
         self._hilo.progreso.connect(self._on_progreso)
         self._hilo.terminado.connect(self._on_terminado)
         self._hilo.start()
 
-    def _on_progreso(self, pct):
+    def _on_progreso(self, pct, texto):
         self.barra.setValue(pct)
-        self.lbl_estado.setText(f"Descargando... {pct}%")
+        self.lbl_estado.setText(texto)
 
     def _on_terminado(self, exito, error):
         if not exito:
