@@ -48,6 +48,17 @@ _C_TEXT_SEC = '#888888'
 
 
 def _cargar_version_local():
+    # En frozen, si aún no existe version.json junto al exe (primer arranque),
+    # copiar el embebido en sys._MEIPASS para que futuras comparaciones funcionen.
+    if ES_COMPILADO and not os.path.exists(VERSION_FILE):
+        import shutil
+        bundled = os.path.join(sys._MEIPASS, 'version.json')
+        if os.path.exists(bundled):
+            try:
+                shutil.copy2(bundled, VERSION_FILE)
+            except OSError:
+                pass
+
     try:
         with open(VERSION_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
