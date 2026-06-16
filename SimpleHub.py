@@ -128,6 +128,13 @@ class HiloVerificarSesion(QThread):
         self.resultado.emit(valido, mensaje)
 
 
+class HiloBuscarActualizacion(QThread):
+    resultado = pyqtSignal(object)  # None o dict con info remota
+
+    def run(self):
+        self.resultado.emit(actualizador.verificar_actualizacion())
+
+
 class AppCard(QFrame):
     abrir = pyqtSignal()
 
@@ -665,13 +672,11 @@ class SimpleHub(QWidget):
         self._timer_sesion.setInterval(30 * 60 * 1000)
         self._timer_sesion.timeout.connect(self._verificar_sesion_periodica)
 
-        # Verificar actualizaciones disponibles en GitHub antes del login.
-        # Si el usuario confirma, actualizador.py lanza update_helper.py y
-        # cierra la app (sys.exit), por lo que el resto de __init__ no se
-        # llega a ejecutar en ese caso.
-        info_actualizacion = actualizador.verificar_actualizacion()
-        if info_actualizacion:
-            actualizador.mostrar_dialogo_actualizacion(info_actualizacion, self._accent, self)
+        self._hilo_actualizacion = None
+        self._btn_actualizar = None
+        # Verificar actualizaciones 5 s después de arrancar para dar tiempo a
+        # que la CDN de GitHub actualice el version.json cacheado.
+        QTimer.singleShot(5000, self._verificar_actualizacion_silenciosa)
 
         # Fade-in de 300ms al mostrar la ventana.
         self.setWindowOpacity(0.0)
@@ -950,6 +955,14 @@ class SimpleHub(QWidget):
         btn_personalizar.clicked.connect(self._abrir_personalizacion)
         header.addWidget(btn_personalizar)
 
+        self._btn_actualizar = QPushButton("🔄 Buscar actualizaciones")
+        self._btn_actualizar.setStyleSheet(
+            f"background-color: transparent; color: {_C_TEXT_SEC}; "
+            f"border: 0.5px solid {_C_BORDER}; border-radius: 7px; padding: 6px 12px;"
+        )
+        self._btn_actualizar.clicked.connect(self._buscar_actualizaciones_manual)
+        header.addWidget(self._btn_actualizar)
+
         btn_logout = QPushButton("Cerrar sesión")
         btn_logout.setStyleSheet(
             f"background-color: transparent; color: {_C_TEXT_SEC}; "
@@ -1000,6 +1013,47 @@ class SimpleHub(QWidget):
     def _inicial_usuario(self):
         email = _decodificar_email(self.token)
         return (email[:1] or "?").upper()
+
+    # ------------------------------------------------------------------
+    # Actualizaciones
+    # ------------------------------------------------------------------
+    def _verificar_actualizacion_silenciosa(self):
+        if self._hilo_actualizacion and self._hilo_actualizacion.isRunning():
+            return
+        self._hilo_actualizacion = HiloBuscarActualizacion(self)
+        self._hilo_actualizacion.resultado.connect(self._on_resultado_actualizacion)
+        self._hilo_actualizacion.start()
+
+    def _on_resultado_actualizacion(self, info):
+        if info:
+            actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
+
+    def _buscar_actualizaciones_manual(self):
+        if self._hilo_actualizacion and self._hilo_actualizacion.isRunning():
+            return
+        if self._btn_actualizar:
+            self._btn_actualizar.setEnabled(False)
+            self._btn_actualizar.setText("Buscando...")
+        self._hilo_actualizacion = HiloBuscarActualizacion(self)
+        self._hilo_actualizacion.resultado.connect(self._on_resultado_manual)
+        self._hilo_actualizacion.start()
+
+    def _on_resultado_manual(self, info):
+        if self._btn_actualizar:
+            try:
+                self._btn_actualizar.setEnabled(True)
+                self._btn_actualizar.setText("🔄 Buscar actualizaciones")
+            except RuntimeError:
+                pass
+        if info:
+            actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
+        else:
+            version_local = actualizador._cargar_version_local()
+            v = (version_local or {}).get('version', '?')
+            QMessageBox.information(
+                self, "Sin actualizaciones",
+                f"Ya tenés la versión más reciente ({v})."
+            )
 
     # ------------------------------------------------------------------
     # Apertura de apps
