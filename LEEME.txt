@@ -1,0 +1,21 @@
+=== SimpleResolve - Carpeta de instalación ===
+
+Archivos en esta carpeta:
+  SimpleHub.exe        - Aplicación principal
+  SimpleResolver.exe   - Módulo de resolución
+  SimpleDownloader.exe - Módulo de descargas
+  update_helper.exe    - Instalador de actualizaciones (no borrar)
+  version.json         - Versión actual
+  hashes.json          - Verificación de integridad
+
+ACCESOS DIRECTOS (.lnk)
+  Windows puede crear accesos directos en esta carpeta al anclar
+  la aplicación al menú Inicio o a la barra de tareas. Esos archivos
+  .lnk son gestionados por Windows y no afectan al funcionamiento
+  de SimpleResolve; puedes moverlos o eliminarlos libremente.
+
+PERSONALIZACIÓN (fondo, colores, video)
+  La configuración personal se guarda en:
+    %APPDATA%\SimpleResolve\config\personalizacion.json
+  Esa carpeta NO se toca durante las actualizaciones, por lo que
+  tu fondo y colores se conservan siempre.

@@ -1,8 +1,19 @@
 import os
 import json
+import shutil
 
-_CONFIG_DIR = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'SimpleResolve')
+_APPDATA_BASE = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'SimpleResolve')
+_CONFIG_DIR = os.path.join(_APPDATA_BASE, 'config')
 _CONFIG_PATH = os.path.join(_CONFIG_DIR, 'personalizacion.json')
+
+# Migrar config antigua (antes estaba directo en SimpleResolve/, ahora en config/)
+_OLD_CONFIG_PATH = os.path.join(_APPDATA_BASE, 'personalizacion.json')
+if os.path.exists(_OLD_CONFIG_PATH) and not os.path.exists(_CONFIG_PATH):
+    try:
+        os.makedirs(_CONFIG_DIR, exist_ok=True)
+        shutil.move(_OLD_CONFIG_PATH, _CONFIG_PATH)
+    except OSError:
+        pass
 
 DEFAULTS = {
     'color_fondo': None,

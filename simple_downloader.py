@@ -54,12 +54,12 @@ _C_BG_APP = '#0d0d0d'
 _C_BG_PANEL = '#111111'
 _C_BG_EL = '#1a1a1a'
 _C_BORDER = '#222222'
-_C_TEXT = '#cccccc'
+_C_TEXT = '#ffffff'
 _C_TEXT_SEC = '#888888'
 _C_TEXT_HINT = '#555555'
-_C_RED = '#e53e3e'
-_C_PURPLE = '#7c3aed'
-_C_GREEN = '#22c55e'
+_C_RED = '#ff4444'
+_C_PURPLE = '#8b5cf6'
+_C_GREEN = '#00ff88'
 _C_YELLOW = '#f59e0b'
 _C_BLUE = '#2563eb'
 
@@ -606,7 +606,7 @@ class PulsingIndicator(QWidget):
         if hasattr(self, '_blink_timer') and self._blink_timer.isActive():
             self._blink_timer.stop()
         if activo:
-            self._color = QColor('#22c55e')
+            self._color = QColor('#00ff88')
             self._group.start()
         else:
             self._group.stop()
@@ -628,7 +628,7 @@ class PulsingIndicator(QWidget):
             self._blink_timer.stop()
             self.set_active(True)
             return
-        self._color = QColor('#22c55e') if self._blink_count % 2 == 0 else QColor('#555566')
+        self._color = QColor('#00ff88') if self._blink_count % 2 == 0 else QColor('#555566')
         self.update()
         self._blink_count += 1
 
@@ -1025,11 +1025,12 @@ class QueueItemWidget(QFrame):
 
     def _apply_status_style(self):
         color = self._COLORS.get(self.status, _C_BLUE)
+        lighter = QColor(color).lighter(140).name()
         self.setStyleSheet(f"""
             QFrame {{
                 background-color: {_C_BG_EL};
                 border: none;
-                border-left: 2px solid {color};
+                border-left: 4px solid {color};
                 border-radius: 5px;
             }}
             QProgressBar {{
@@ -1038,7 +1039,7 @@ class QueueItemWidget(QFrame):
                 border-radius: 2px;
             }}
             QProgressBar::chunk {{
-                background-color: {color};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {color}, stop:1 {lighter});
                 border-radius: 2px;
             }}
         """)
@@ -1859,10 +1860,10 @@ class SimpleDownloaderWindow(QWidget):
                 color: {_C_TEXT_SEC};
             }}
             QTabBar::tab:selected {{
-                background: {_C_BG_PANEL};
-                border: 1px solid {_C_BORDER};
-                border-bottom: 2px solid {color_acento};
-                color: {_C_TEXT};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e1e2e, stop:1 {_C_BG_PANEL});
+                border: 1px solid {color_acento};
+                border-bottom: 3px solid {color_acento};
+                color: {color_acento};
                 font-weight: bold;
             }}
             QLineEdit {{
@@ -1905,13 +1906,13 @@ class SimpleDownloaderWindow(QWidget):
                 color: #aaaaaa;
             }}
             QPushButton#btnPrimary {{
-                background-color: {color_acento};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {color_acento}, stop:1 {c.lighter(130).name()});
                 border: none;
                 font-weight: bold;
                 color: {texto_primary};
             }}
             QPushButton#btnPrimary:hover {{
-                background-color: {c.lighter(115).name()};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c.lighter(115).name()}, stop:1 {c.lighter(140).name()});
             }}
             QPushButton#qualityBtn {{
                 background-color: {btn_bg};
@@ -1921,8 +1922,8 @@ class SimpleDownloaderWindow(QWidget):
                 color: {_C_TEXT};
             }}
             QPushButton#qualityBtn:checked {{
-                background-color: {c.lighter(130).name()};
-                border: 2px solid #ffffff;
+                background-color: {color_acento};
+                border: 2px solid {c.lighter(160).name()};
                 color: {texto_primary};
                 font-weight: bold;
             }}
@@ -1934,8 +1935,8 @@ class SimpleDownloaderWindow(QWidget):
                 color: {_C_TEXT_HINT};
             }}
             QPushButton#formatChip:checked {{
-                background-color: {c.lighter(130).name()};
-                border: 2px solid #ffffff;
+                background-color: {color_acento};
+                border: 2px solid {c.lighter(160).name()};
                 color: {texto_primary};
                 font-weight: bold;
             }}
@@ -1951,7 +1952,7 @@ class SimpleDownloaderWindow(QWidget):
                 height: 3px;
             }}
             QProgressBar::chunk {{
-                background-color: {color_acento};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {color_acento}, stop:1 {c.lighter(130).name()});
                 border-radius: 2px;
             }}
             QScrollArea {{

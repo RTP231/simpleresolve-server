@@ -143,10 +143,9 @@ class PanelGlass(QWidget):
         if self.color_fondo is not None:
             p.fillPath(path, QBrush(self.color_fondo))
         elif self.oscuro:
-            grad = QLinearGradient(0, 0, r.width(), r.height())
-            grad.setColorAt(0.0, QColor(18, 16, 32, 230))
-            grad.setColorAt(0.5, QColor(22, 20, 40, 220))
-            grad.setColorAt(1.0, QColor(14, 12, 28, 230))
+            grad = QLinearGradient(0, 0, 0, r.height())
+            grad.setColorAt(0.0, QColor(26, 26, 46, 230))
+            grad.setColorAt(1.0, QColor(17, 17, 17, 230))
             p.fillPath(path, QBrush(grad))
         else:
             grad = QLinearGradient(0, 0, r.width(), r.height())
