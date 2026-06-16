@@ -115,7 +115,7 @@ class DialogoActualizacion(QDialog):
         self._accent = accent
         self._hilo = None
 
-        self.setWindowTitle(f"Actualización disponible v{info_remota.get('version', '')}")
+        self.setWindowTitle("Actualización disponible")
         self.setFixedWidth(380)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
         self.setStyleSheet(f"""
@@ -162,13 +162,13 @@ class DialogoActualizacion(QDialog):
         lay = QVBoxLayout(self)
         lay.setSpacing(12)
 
-        lbl_titulo = QLabel(f"Actualización disponible v{info_remota.get('version', '')}")
+        lbl_titulo = QLabel("¡Nueva versión disponible!")
         lbl_titulo.setStyleSheet("font-size: 14px; font-weight: bold; background: transparent;")
         lay.addWidget(lbl_titulo)
 
         lbl_desc = QLabel(
-            "Se encontró una nueva versión. La actualización se instalará "
-            "automáticamente y la aplicación se reiniciará."
+            "Hay una actualización lista para instalar.\n"
+            "La aplicación se reiniciará automáticamente."
         )
         lbl_desc.setWordWrap(True)
         lbl_desc.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 11px; background: transparent;")
@@ -217,7 +217,7 @@ class DialogoActualizacion(QDialog):
 
     def _on_descarga_terminada(self, exito, error):
         if not exito:
-            self.lbl_error.setText(f"Error al descargar la actualización: {error}")
+            self.lbl_error.setText("No se pudo descargar la actualización. Comprueba tu conexión.")
             self.lbl_error.setVisible(True)
             self.btn_actualizar.setEnabled(True)
             self.btn_despues.setEnabled(True)

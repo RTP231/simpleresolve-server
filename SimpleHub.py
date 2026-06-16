@@ -129,10 +129,24 @@ class HiloVerificarSesion(QThread):
 
 
 class HiloBuscarActualizacion(QThread):
-    resultado = pyqtSignal(object)  # None o dict con info remota
+    # (info_remota_o_None, '' | 'error_red')
+    resultado = pyqtSignal(object, str)
 
     def run(self):
-        self.resultado.emit(actualizador.verificar_actualizacion())
+        try:
+            r = requests.get(
+                f"{actualizador.GITHUB_RAW}/version.json",
+                timeout=10,
+            )
+            r.raise_for_status()
+            remoto = r.json()
+            local = actualizador._cargar_version_local()
+            if local and remoto.get('version') != local.get('version'):
+                self.resultado.emit(remoto, '')
+            else:
+                self.resultado.emit(None, '')
+        except Exception:
+            self.resultado.emit(None, 'error_red')
 
 
 class AppCard(QFrame):
@@ -533,7 +547,7 @@ class DialogoDescargaExe(QDialog):
         self._error_msg = ''
         self._hilo = None
 
-        self.setWindowTitle("Descargando componente")
+        self.setWindowTitle("Descargando aplicación")
         self.setFixedWidth(340)
         self.setWindowFlags(
             Qt.WindowType.Dialog
@@ -565,13 +579,14 @@ class DialogoDescargaExe(QDialog):
         lay.setSpacing(12)
         lay.setContentsMargins(20, 20, 20, 20)
 
-        lbl_titulo = QLabel(f"Descargando {nombre_exe}")
+        app_nombre = "Simple Resolver" if "Resolver" in nombre_exe else "Simple Downloader"
+        lbl_titulo = QLabel(f"Descargando {app_nombre}")
         lbl_titulo.setStyleSheet("font-size: 13px; font-weight: bold;")
         lay.addWidget(lbl_titulo)
 
         lbl_desc = QLabel(
-            "Este componente se descarga automáticamente\n"
-            "la primera vez. Por favor, espere..."
+            "Se está descargando la aplicación por primera vez.\n"
+            "Por favor, espera un momento..."
         )
         lbl_desc.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 11px;")
         lay.addWidget(lbl_desc)
@@ -1024,8 +1039,8 @@ class SimpleHub(QWidget):
         self._hilo_actualizacion.resultado.connect(self._on_resultado_actualizacion)
         self._hilo_actualizacion.start()
 
-    def _on_resultado_actualizacion(self, info):
-        if info:
+    def _on_resultado_actualizacion(self, info, error):
+        if info and not error:
             actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
 
     def _buscar_actualizaciones_manual(self):
@@ -1038,21 +1053,24 @@ class SimpleHub(QWidget):
         self._hilo_actualizacion.resultado.connect(self._on_resultado_manual)
         self._hilo_actualizacion.start()
 
-    def _on_resultado_manual(self, info):
+    def _on_resultado_manual(self, info, error):
         if self._btn_actualizar:
             try:
                 self._btn_actualizar.setEnabled(True)
                 self._btn_actualizar.setText("🔄 Buscar actualizaciones")
             except RuntimeError:
                 pass
-        if info:
+        if error:
+            QMessageBox.warning(
+                self, "Sin conexión",
+                "No se pudo verificar. Comprueba tu conexión a internet."
+            )
+        elif info:
             actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
         else:
-            version_local = actualizador._cargar_version_local()
-            v = (version_local or {}).get('version', '?')
             QMessageBox.information(
-                self, "Sin actualizaciones",
-                f"Ya tenés la versión más reciente ({v})."
+                self, "Aplicación al día",
+                "Tu aplicación está al día ✓"
             )
 
     # ------------------------------------------------------------------
@@ -1084,24 +1102,20 @@ class SimpleHub(QWidget):
             if not os.path.exists(ruta):
                 dlg = DialogoDescargaExe(nombre_exe, self._accent, self)
                 if dlg.exec() != QDialog.DialogCode.Accepted:
-                    err = dlg._error_msg or 'Descarga cancelada o fallida.'
                     QMessageBox.critical(
-                        self, "Error al descargar",
-                        f"No se pudo descargar {nombre_exe}:\n{err}"
+                        self, "Error de descarga",
+                        "No se pudo descargar la aplicación.\n"
+                        "Comprueba tu conexión a internet e inténtalo de nuevo."
                     )
                     return
 
             try:
                 subprocess.Popen([ruta, '--token', self.token], cwd=BASE_DIR)
-            except FileNotFoundError:
+            except Exception:
                 QMessageBox.critical(
-                    self, "Archivo no encontrado",
-                    f"No se encontró {nombre_exe} en:\n{BASE_DIR}"
-                )
-            except Exception as e:
-                QMessageBox.critical(
-                    self, "Error al iniciar",
-                    f"No se pudo abrir {nombre_exe}:\n{e}"
+                    self, "Error al abrir",
+                    "No se pudo iniciar la aplicación.\n"
+                    "Intenta cerrar y volver a abrir SimpleHub."
                 )
             return
 
@@ -1111,8 +1125,8 @@ class SimpleHub(QWidget):
             script = os.path.join(BASE_DIR, '_run_downloader.py')
         try:
             subprocess.Popen([sys.executable, script, '--token', self.token], cwd=BASE_DIR)
-        except Exception as e:
-            QMessageBox.critical(self, "Error al iniciar", f"No se pudo abrir la app:\n{e}")
+        except Exception:
+            QMessageBox.critical(self, "Error al abrir", "No se pudo iniciar la aplicación.")
 
 
 if __name__ == "__main__":
