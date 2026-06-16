@@ -73,9 +73,12 @@ def _reemplazar_archivo(nuevo, original, intentos=10, espera=1):
 
 
 def _limpiar_archivos_viejos():
-    """Elimina de BASE_DIR cualquier archivo que no esté en ARCHIVOS_PERMITIDOS."""
+    """Elimina de BASE_DIR cualquier archivo que no esté en ARCHIVOS_PERMITIDOS.
+    Los archivos .new se omiten para no borrar las actualizaciones descargadas."""
     try:
         for nombre in os.listdir(BASE_DIR):
+            if nombre.endswith('.new'):
+                continue
             ruta = os.path.join(BASE_DIR, nombre)
             if os.path.isfile(ruta) and nombre not in ARCHIVOS_PERMITIDOS:
                 try:
@@ -98,11 +101,21 @@ def _crear_leeme():
 def main():
     time.sleep(2)
 
+    # Limpiar archivos viejos ANTES de instalar: así quedan fuera de la carpeta
+    # exe de versiones anteriores (no .new, para no borrar lo que vamos a instalar).
+    _limpiar_archivos_viejos()
+
     for nuevo in glob.glob(os.path.join(BASE_DIR, '*.new')):
         original = nuevo[:-len('.new')]
         _reemplazar_archivo(nuevo, original)
 
-    _limpiar_archivos_viejos()
+    # Segunda pasada: elimina cualquier .new que no se haya podido instalar.
+    for sobrante in glob.glob(os.path.join(BASE_DIR, '*.new')):
+        try:
+            os.remove(sobrante)
+        except OSError:
+            pass
+
     _crear_leeme()
 
     try:

@@ -689,6 +689,7 @@ class SimpleHub(QWidget):
 
         self._hilo_actualizacion = None
         self._btn_actualizar = None
+        self._actualizando = False
         # Verificar actualizaciones 5 s después de arrancar para dar tiempo a
         # que la CDN de GitHub actualice el version.json cacheado.
         QTimer.singleShot(5000, self._verificar_actualizacion_silenciosa)
@@ -1044,8 +1045,11 @@ class SimpleHub(QWidget):
             actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
 
     def _buscar_actualizaciones_manual(self):
+        if self._actualizando:
+            return
         if self._hilo_actualizacion and self._hilo_actualizacion.isRunning():
             return
+        self._actualizando = True
         if self._btn_actualizar:
             self._btn_actualizar.setEnabled(False)
             self._btn_actualizar.setText("Buscando...")
@@ -1053,21 +1057,29 @@ class SimpleHub(QWidget):
         self._hilo_actualizacion.resultado.connect(self._on_resultado_manual)
         self._hilo_actualizacion.start()
 
-    def _on_resultado_manual(self, info, error):
+    def _resetear_btn_actualizar(self):
+        self._actualizando = False
         if self._btn_actualizar:
             try:
                 self._btn_actualizar.setEnabled(True)
                 self._btn_actualizar.setText("🔄 Buscar actualizaciones")
             except RuntimeError:
                 pass
+
+    def _on_resultado_manual(self, info, error):
         if error:
+            self._resetear_btn_actualizar()
             QMessageBox.warning(
                 self, "Sin conexión",
                 "No se pudo verificar. Comprueba tu conexión a internet."
             )
         elif info:
+            # Botón queda deshabilitado mientras el diálogo está abierto.
+            # Si el usuario cancela, lo rehabilitamos; si confirma, sys.exit().
             actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
+            self._resetear_btn_actualizar()
         else:
+            self._resetear_btn_actualizar()
             QMessageBox.information(
                 self, "Aplicación al día",
                 "Tu aplicación está al día ✓"
