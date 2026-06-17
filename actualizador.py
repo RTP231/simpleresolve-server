@@ -1,14 +1,19 @@
 """Sistema de auto-actualización de SimpleHub.
 
 Comprueba si hay una versión más nueva publicada en GitHub (rama "cliente"),
-y si el usuario lo confirma descarga los archivos nuevos y relanza la app
-mediante update_helper para poder reemplazar incluso los archivos que están
-en uso (como el propio SimpleHub).
+y si el usuario lo confirma descarga la actualización y relanza la app.
 
 En modo desarrollo (ejecutado como .py) se descargan los .py listados en
-version.json desde GITHUB_RAW. En modo compilado (.exe, PyInstaller) se
-descargan los .exe de SimpleHub/SimpleResolver/SimpleDownloader desde la
-última GitHub Release.
+version.json desde GITHUB_RAW y se aplica mediante update_helper.py.
+
+En modo compilado (.exe) se descarga el instalador SimpleSetup.exe (Inno
+Setup) desde la última GitHub Release y se ejecuta en modo silencioso
+(/verysilent /norestart) sobre la misma carpeta de instalación
+(%LOCALAPPDATA%\\SimpleSuite, sin privilegios de administrador, así que no
+pide UAC). Como el instalador no relanza SimpleHub por sí mismo cuando
+corre en silencioso (su [Run] postinstall tiene skipifsilent, pensado para
+una instalación manual interactiva), _lanzar_instalador() se encarga de
+relanzarlo después desde un .bat temporal.
 """
 
 import os
@@ -23,9 +28,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-from integrity import ARCHIVOS_CRITICOS_EXE
-
-
 ES_COMPILADO = getattr(sys, 'frozen', False)
 
 if ES_COMPILADO:
@@ -37,11 +39,8 @@ GITHUB_RAW = "https://raw.githubusercontent.com/RTP231/simpleresolve-server/clie
 GITHUB_RELEASES = "https://github.com/RTP231/simpleresolve-server/releases/latest/download"
 VERSION_FILE = os.path.join(BASE_DIR, 'version.json')
 
-# Exes que se reemplazan en una actualización compilada. update_helper.exe
-# se incluye aparte de ARCHIVOS_CRITICOS_EXE: ese último se usa también para
-# verificar integridad al arrancar, y update_helper.exe queda excluido de esa
-# verificación a propósito (ver integrity.py), pero sí debe poder actualizarse.
-ARCHIVOS_EXE = ARCHIVOS_CRITICOS_EXE + ['update_helper.exe']
+# En modo compilado, la actualización es un solo archivo: el instalador.
+INSTALADOR_NOMBRE = 'SimpleSetup.exe'
 
 _C_BG = '#0d0d0d'
 _C_CARD = '#1a1a1a'
@@ -213,7 +212,7 @@ class DialogoActualizacion(QDialog):
         self.barra.setValue(0)
 
         if ES_COMPILADO:
-            archivos = [(nombre, f"{GITHUB_RELEASES}/{nombre}") for nombre in ARCHIVOS_EXE]
+            archivos = [(INSTALADOR_NOMBRE, f"{GITHUB_RELEASES}/{INSTALADOR_NOMBRE}")]
         else:
             archivos = [(archivo, f"{GITHUB_RAW}/{archivo}") for archivo in self.info_remota.get('archivos', [])]
 
@@ -231,20 +230,52 @@ class DialogoActualizacion(QDialog):
             self.barra.setVisible(False)
             return
 
-        lanzar_update_helper()
+        if ES_COMPILADO:
+            _lanzar_instalador()
+        else:
+            lanzar_update_helper()
         self.accept()
         sys.exit(0)
 
 
 def lanzar_update_helper():
-    """Lanza el update_helper (que espera a que SimpleHub se cierre, instala
-    los archivos .new y reinicia la app) y deja correr el proceso aparte."""
-    if ES_COMPILADO:
-        helper = os.path.join(BASE_DIR, 'update_helper.exe')
-        subprocess.Popen([helper], cwd=BASE_DIR)
-    else:
-        helper = os.path.join(BASE_DIR, 'update_helper.py')
-        subprocess.Popen([sys.executable, helper], cwd=BASE_DIR)
+    """Modo desarrollo: lanza update_helper.py, que espera a que SimpleHub
+    se cierre, instala los .py descargados y reinicia la app."""
+    helper = os.path.join(BASE_DIR, 'update_helper.py')
+    subprocess.Popen([sys.executable, helper], cwd=BASE_DIR)
+
+
+def _lanzar_instalador():
+    """Modo compilado: corre el instalador descargado (SimpleSetup.exe) en
+    silencioso sobre la misma carpeta de instalación, y relanza SimpleHub al
+    terminar. Se hace desde un .bat temporal (no directamente) por dos
+    motivos: dar un par de segundos para que SimpleHub libere su propio exe
+    antes de que el instalador intente reemplazarlo, y porque el instalador
+    en /verysilent no relanza nada (su [Run] postinstall tiene skipifsilent,
+    pensado para una instalación manual interactiva)."""
+    nuevo = os.path.join(BASE_DIR, f'{INSTALADOR_NOMBRE}.new')
+    instalador = os.path.join(BASE_DIR, INSTALADOR_NOMBRE)
+    try:
+        if os.path.exists(instalador):
+            os.remove(instalador)
+        os.rename(nuevo, instalador)
+    except OSError:
+        return
+
+    simplehub = os.path.join(BASE_DIR, 'SimpleHub.exe')
+    bat_content = (
+        'timeout /t 2 /nobreak >nul\r\n'
+        f'"{instalador}" /verysilent /norestart /suppressmsgboxes\r\n'
+        f'start "" "{simplehub}"\r\n'
+        'del "%~f0"\r\n'
+    )
+    bat_path = os.path.join(BASE_DIR, '_instalar_actualizacion.bat')
+    try:
+        with open(bat_path, 'w', encoding='utf-8') as f:
+            f.write(bat_content)
+        subprocess.Popen(bat_path, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    except OSError:
+        pass
 
 
 def mostrar_dialogo_actualizacion(info_remota, accent='#7c3aed', parent=None, al_cerrar=None):
