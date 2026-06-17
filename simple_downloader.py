@@ -25,9 +25,9 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import QColor, QPainter, QBrush, QPixmap, QLinearGradient, QPainterPath, QIcon
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLineEdit, QPushButton,
-    QLabel, QButtonGroup, QProgressBar, QFileDialog, QScrollArea, QFrame,
-    QMessageBox, QTabBar, QStackedWidget, QGraphicsOpacityEffect,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLineEdit,
+    QPushButton, QLabel, QButtonGroup, QProgressBar, QFileDialog, QScrollArea,
+    QFrame, QMessageBox, QTabBar, QStackedWidget, QGraphicsOpacityEffect,
 )
 
 from webview2_browser import WebView2BrowserWidget, IGNORE_URL_PATTERNS
@@ -2960,3 +2960,20 @@ class SimpleDownloaderWindow(QWidget):
         if hasattr(self, 'fondo_video_global'):
             self.fondo_video_global.detener()
         super().closeEvent(event)
+
+
+if __name__ == '__main__':
+    # Punto de entrada cuando este archivo se ejecuta directamente, que es
+    # lo que pasa en modo compilado (SimpleDownloader.exe se compila desde
+    # este script, ver SimpleDownloader.spec). En modo desarrollo se usa en
+    # cambio _run_downloader.py, que hace exactamente esto mismo.
+    if '--token' in sys.argv:
+        idx = sys.argv.index('--token')
+        if idx + 1 < len(sys.argv):
+            auth_manager.guardar_token(sys.argv[idx + 1])
+            auth_manager.limpiar_marca_sesion_invalida()
+
+    app = QApplication(sys.argv)
+    w = SimpleDownloaderWindow()
+    w.show()
+    sys.exit(app.exec())
