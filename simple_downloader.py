@@ -12,6 +12,7 @@ import os
 import sys
 import shutil
 import subprocess
+import time
 
 import json
 import re
@@ -126,6 +127,7 @@ else:
 
 _YOUTUBE_COOKIES_PATH = os.path.join(_APP_DIR, 'youtube_cookies.txt')
 _TIKTOK_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_tiktok_cookies.txt')
+_FACEBOOK_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_facebook_cookies.txt')
 
 
 def _get_cookies_file():
@@ -173,10 +175,58 @@ def _apply_tiktok_opts(opts, url, cookies_file=None):
     return opts
 
 
+_FACEBOOK_HTTP_HEADERS = {
+    'User-Agent': _CHROME_USER_AGENT,
+}
+
+
+def _apply_facebook_opts(opts, url, cookies_file=None):
+    """Aplica cabeceras y cookies para que yt-dlp pueda descargar videos de
+    Facebook (muchos requieren estar logueado, aunque sean públicos)."""
+    if 'facebook.com' not in url.lower() and 'fb.watch' not in url.lower():
+        return opts
+    opts['http_headers'] = dict(_FACEBOOK_HTTP_HEADERS)
+    if cookies_file:
+        opts['cookiefile'] = cookies_file
+    return opts
+
+
 _AUTH_ERROR_RE = re.compile(
     r'sign in|login|cookies|private video|members-only|age[- ]restricted|forbidden|403',
     re.IGNORECASE,
 )
+
+# Errores que indican un problema de conectividad (no de la URL/video en
+# sí), candidatos a reintentar automáticamente en vez de fallar de una vez.
+_ERRORES_RED = ('network', 'connection', 'timeout', 'reset', 'refused', 'unreachable')
+
+
+def _es_error_de_red(mensaje):
+    m = mensaje.lower()
+    return any(err in m for err in _ERRORES_RED)
+
+
+def _mensaje_error_legible(mensaje):
+    """Traduce errores técnicos de yt-dlp/red a un texto que el usuario
+    entienda. Si no coincide ningún patrón conocido, se devuelve el
+    mensaje técnico completo (para poder diagnosticar)."""
+    m = mensaje.lower()
+
+    if _es_error_de_red(mensaje):
+        return "Sin conexión a internet - reintentando automáticamente"
+    if 'private video' in m:
+        return "Video privado - no se puede descargar"
+    if 'sign in' in m:
+        return "Necesitas iniciar sesión en YouTube en el navegador"
+    if 'geo' in m and ('restrict' in m or 'block' in m):
+        return "Video no disponible en tu región"
+    if '403' in mensaje:
+        return "Acceso denegado - inicia sesión en el sitio e intenta de nuevo"
+    if '404' in mensaje:
+        return "Video no encontrado - puede haber sido eliminado"
+    if '410' in mensaje:
+        return "Video expirado - navega al video e intenta de nuevo"
+    return mensaje
 
 
 _FORMAT_FALLBACK = {
@@ -188,7 +238,8 @@ _FORMAT_FALLBACK = {
 }
 
 
-def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None):
+def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None,
+                     facebook_cookies_file=None):
     """Construye las opciones de yt-dlp según calidad, formato y URL elegidos."""
     opts = {
         'outtmpl': os.path.join(dest_folder, '%(title)s.%(ext)s'),
@@ -222,9 +273,12 @@ def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None)
         }
 
     cookies_file = _get_cookies_file()
+    url_lower = url.lower()
 
-    if 'tiktok.com' in url.lower():
+    if 'tiktok.com' in url_lower:
         _apply_tiktok_opts(opts, url, tiktok_cookies_file or cookies_file)
+    elif 'facebook.com' in url_lower or 'fb.watch' in url_lower:
+        _apply_facebook_opts(opts, url, facebook_cookies_file or cookies_file)
     else:
         if cookies_file:
             opts['cookiefile'] = cookies_file
@@ -849,6 +903,7 @@ class QueueItemWidget(QFrame):
 
     cancel_requested = pyqtSignal(str)
     goto_tiktok_requested = pyqtSignal()
+    retry_requested = pyqtSignal(str)
 
     _COLORS = {
         'queued': _C_BLUE,
@@ -946,6 +1001,17 @@ class QueueItemWidget(QFrame):
         self.btn_folder.clicked.connect(self._abrir_carpeta)
         root.addWidget(self.btn_folder)
 
+        self.btn_retry = QPushButton("↻")
+        self.btn_retry.setFixedSize(22, 22)
+        self.btn_retry.setToolTip("Reintentar")
+        self.btn_retry.setVisible(False)
+        self.btn_retry.setStyleSheet(f"""
+            QPushButton {{ color: {_C_TEXT_SEC}; background: transparent; border: none; font-size: 13px; }}
+            QPushButton:hover {{ color: {_C_BLUE}; }}
+        """)
+        self.btn_retry.clicked.connect(lambda: self.retry_requested.emit(self.item_id))
+        root.addWidget(self.btn_retry)
+
         self.btn_cancel = QPushButton("✕")
         self.btn_cancel.setFixedSize(22, 22)
         self.btn_cancel.setStyleSheet(f"""
@@ -1038,15 +1104,21 @@ class QueueItemWidget(QFrame):
         self.lbl_percent.setStyleSheet(f"color: {_C_TEXT_SEC}; font-size: 10px; background: transparent;")
 
     def set_retrying(self, mensaje):
-        self.lbl_percent.setText("URL expirada...")
+        texto = mensaje.strip().splitlines()[0]
+        if len(texto) > 40:
+            texto = texto[:37] + "..."
+        self.lbl_percent.setText(texto)
         self.lbl_percent.setToolTip(mensaje)
         self.lbl_percent.setStyleSheet(f"color: {_C_YELLOW}; font-size: 10px; background: transparent;")
 
     def set_status(self, status, detail=None):
         self.status = status
-        if status in ('completed', 'error', 'cancelled'):
-            self.btn_cancel.setEnabled(False)
-            self.btn_cancel.setVisible(False)
+        terminado = status in ('completed', 'error', 'cancelled')
+        self.btn_cancel.setEnabled(not terminado)
+        self.btn_cancel.setVisible(not terminado)
+        self.btn_retry.setVisible(status == 'error')
+        if status != 'error':
+            self.btn_tiktok_login.setVisible(False)
         if status == 'completed':
             self.progress.setValue(100)
             self.lbl_percent.setText("100%")
@@ -1192,6 +1264,8 @@ class DownloadWorker(QThread):
     retrying = pyqtSignal(str, str)                  # item_id, mensaje
 
     MAX_RETRIES_EXPIRADA = 3
+    MAX_RETRIES_RED = 5
+    ESPERA_RED_SEGUNDOS = 10
 
     def __init__(self, item_id, url, ydl_opts, parent=None, page_url=None):
         super().__init__(parent)
@@ -1204,6 +1278,36 @@ class DownloadWorker(QThread):
 
     def cancel(self):
         self._cancelled = True
+
+    def _reintentar_por_red(self, mensaje, intentos_red):
+        """Si `mensaje` indica un problema de conexión (no de la URL/video),
+        espera y devuelve ('retry', intentos_red) para que el bucle de
+        run() reintente la descarga. Si ya se agotaron los reintentos,
+        emite el fallo final y devuelve ('failed', intentos_red). Si no es
+        un error de red, devuelve ('no', intentos_red) sin tocar nada."""
+        if not _es_error_de_red(mensaje):
+            return 'no', intentos_red
+
+        if intentos_red >= self.MAX_RETRIES_RED:
+            self.failed.emit(
+                self.item_id,
+                f"Error de red después de {self.MAX_RETRIES_RED} intentos - "
+                "haz click para reintentar"
+            )
+            return 'failed', intentos_red
+
+        intentos_red += 1
+        self.retrying.emit(
+            self.item_id,
+            f"Sin conexión, reintentando en {self.ESPERA_RED_SEGUNDOS}s... "
+            f"({intentos_red}/{self.MAX_RETRIES_RED})"
+        )
+        time.sleep(self.ESPERA_RED_SEGUNDOS)
+        if self._cancelled:
+            self.failed.emit(self.item_id, "Cancelado por el usuario")
+            return 'failed', intentos_red
+        self.retrying.emit(self.item_id, "Reconectado - continuando descarga")
+        return 'retry', intentos_red
 
     def _progress_hook(self, d):
         if self._cancelled:
@@ -1241,6 +1345,7 @@ class DownloadWorker(QThread):
         url = self.url
         opts = dict(self.ydl_opts)
         intentos = 0
+        intentos_red = 0
         sin_cookies_intentado = False
         while True:
             try:
@@ -1253,6 +1358,13 @@ class DownloadWorker(QThread):
                     return
 
                 mensaje = str(e)
+
+                resultado, intentos_red = self._reintentar_por_red(mensaje, intentos_red)
+                if resultado == 'retry':
+                    continue
+                if resultado == 'failed':
+                    return
+
                 es_expirada = '410' in mensaje
                 if es_expirada and self.page_url and intentos < self.MAX_RETRIES_EXPIRADA:
                     intentos += 1
@@ -1282,7 +1394,18 @@ class DownloadWorker(QThread):
                 self.failed.emit(self.item_id, mensaje)
                 return
             except Exception as e:
-                self.failed.emit(self.item_id, str(e))
+                if self._cancelled:
+                    self.failed.emit(self.item_id, "Cancelado por el usuario")
+                    return
+
+                mensaje = str(e)
+                resultado, intentos_red = self._reintentar_por_red(mensaje, intentos_red)
+                if resultado == 'retry':
+                    continue
+                if resultado == 'failed':
+                    return
+
+                self.failed.emit(self.item_id, mensaje)
                 return
 
 
@@ -1303,6 +1426,7 @@ class SimpleDownloaderWindow(QWidget):
         self._pending_queue = []      # ids en espera
         self._workers = {}            # item_id -> DownloadWorker
         self._widgets = {}            # item_id -> QueueItemWidget
+        self._download_args = {}      # item_id -> (url, ydl_opts, page_url), para "Reintentar"
         self._active_count = 0
         self._thumb_manager = QNetworkAccessManager(self)
 
@@ -2306,8 +2430,8 @@ class SimpleDownloaderWindow(QWidget):
         if view is not None:
             view.navigate("https://www.tiktok.com/")
 
-    def _exportar_cookies_tiktok(self):
-        """Si el usuario está logueado en TikTok en el navegador embebido,
+    def _exportar_cookies_sitio(self, dominio, url_cookies, ruta_destino):
+        """Si el usuario está logueado en `dominio` en el navegador embebido,
         exporta esas cookies en formato Netscape para que yt-dlp pueda
         descargar videos privados/restringidos. Devuelve la ruta del
         archivo de cookies o None si no hay sesión iniciada."""
@@ -2315,17 +2439,27 @@ class SimpleDownloaderWindow(QWidget):
         if view is None:
             return None
         try:
-            cookies = view.get_cookies('https://www.tiktok.com')
+            cookies = view.get_cookies(url_cookies)
         except Exception:
             cookies = []
-        cookies_tiktok = [c for c in cookies if 'tiktok' in (c.get('domain') or '').lower()]
-        if not cookies_tiktok:
+        cookies_sitio = [c for c in cookies if dominio in (c.get('domain') or '').lower()]
+        if not cookies_sitio:
             return None
         try:
-            _escribir_cookies_netscape(cookies_tiktok, _TIKTOK_COOKIES_PATH)
-            return _TIKTOK_COOKIES_PATH
+            _escribir_cookies_netscape(cookies_sitio, ruta_destino)
+            return ruta_destino
         except OSError:
             return None
+
+    def _exportar_cookies_tiktok(self):
+        return self._exportar_cookies_sitio(
+            'tiktok', 'https://www.tiktok.com', _TIKTOK_COOKIES_PATH
+        )
+
+    def _exportar_cookies_facebook(self):
+        return self._exportar_cookies_sitio(
+            'facebook', 'https://www.facebook.com', _FACEBOOK_COOKIES_PATH
+        )
 
     def _navigate_to_url_bar(self):
         view = self._current_webview()
@@ -2750,14 +2884,20 @@ class SimpleDownloaderWindow(QWidget):
                     "Instala 'imageio-ffmpeg' o ffmpeg en el sistema."
                 )
 
+        url_lower = url.lower()
         tiktok_cookies_file = None
-        if 'tiktok.com' in url.lower():
+        if 'tiktok.com' in url_lower:
             tiktok_cookies_file = self._exportar_cookies_tiktok()
+
+        facebook_cookies_file = None
+        if 'facebook.com' in url_lower or 'fb.watch' in url_lower:
+            facebook_cookies_file = self._exportar_cookies_facebook()
 
         item_id = uuid.uuid4().hex
         ydl_opts = _build_ydl_opts(
             quality, fmt, self._dest_folder, url=url,
             tiktok_cookies_file=tiktok_cookies_file,
+            facebook_cookies_file=facebook_cookies_file,
         )
 
         widget = QueueItemWidget(item_id, url, dest_folder=self._dest_folder, source_url=url)
@@ -2766,7 +2906,9 @@ class SimpleDownloaderWindow(QWidget):
         self.queue_layout.insertWidget(self.queue_layout.count() - 1, widget)
         widget.cancel_requested.connect(self._cancelar_descarga)
         widget.goto_tiktok_requested.connect(self._ir_a_tiktok)
+        widget.retry_requested.connect(self._reintentar_descarga)
 
+        self._download_args[item_id] = (url, ydl_opts, page_url)
         if prioridad:
             self._pending_queue.insert(0, (item_id, url, ydl_opts, page_url))
         else:
@@ -2839,6 +2981,20 @@ class SimpleDownloaderWindow(QWidget):
         if widget is not None:
             widget.set_status('cancelled')
 
+    def _reintentar_descarga(self, item_id):
+        """Vuelve a encolar una descarga que quedó en error, con la misma
+        URL/opciones originales (ver _download_args, guardado al crear la
+        tarjeta)."""
+        args = self._download_args.get(item_id)
+        widget = self._widgets.get(item_id)
+        if args is None or widget is None:
+            return
+        url, ydl_opts, page_url = args
+        widget.set_status('queued')
+        widget.set_progress(0)
+        self._pending_queue.append((item_id, url, ydl_opts, page_url))
+        self._procesar_cola()
+
     def _on_progress(self, item_id, percent, extra):
         widget = self._widgets.get(item_id)
         if widget is not None:
@@ -2861,6 +3017,7 @@ class SimpleDownloaderWindow(QWidget):
             widget.set_retrying(mensaje)
 
     def _on_finished_ok(self, item_id, ruta):
+        self._download_args.pop(item_id, None)
         widget = self._widgets.pop(item_id, None)
         titulo = ''
         pixmap = None
@@ -2982,12 +3139,13 @@ class SimpleDownloaderWindow(QWidget):
         if mensaje == "Cancelado por el usuario":
             widget.set_status('cancelled')
         else:
-            texto = mensaje
             if 'ffmpeg' in mensaje.lower():
                 texto = "ffmpeg no encontrado"
-            elif _AUTH_ERROR_RE.search(mensaje):
-                if not os.path.exists(_YOUTUBE_COOKIES_PATH):
-                    self.auth_banner.setVisible(True)
+            else:
+                if _AUTH_ERROR_RE.search(mensaje):
+                    if not os.path.exists(_YOUTUBE_COOKIES_PATH):
+                        self.auth_banner.setVisible(True)
+                texto = _mensaje_error_legible(mensaje)
             widget.set_status('error', detail=texto)
 
     def _cleanup_worker(self, item_id):
