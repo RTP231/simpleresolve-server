@@ -10,6 +10,7 @@ Uso desde la app principal:
 """
 import os
 import sys
+import shutil
 import subprocess
 
 import json
@@ -195,9 +196,30 @@ def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None)
         'quiet': True,
         'no_warnings': False,
         'ignoreerrors': False,
+        'concurrent_fragment_downloads': 16,
+        'http_chunk_size': 10485760,  # 10MB por chunk
+        'retries': 10,
+        'fragment_retries': 10,
+        'file_access_retries': 5,
     }
     if _FFMPEG_PATH:
         opts['ffmpeg_location'] = _FFMPEG_PATH
+
+    # Para videos con muchos fragmentos (HLS/DASH) aria2c es bastante más
+    # rápido que el descargador nativo. Si no está instalado, se sigue de
+    # largo con concurrent_fragment_downloads (ver Aria2cInstallerWorker,
+    # que intenta instalarlo en segundo plano al iniciar la app).
+    if shutil.which('aria2c'):
+        opts['external_downloader'] = 'aria2c'
+        opts['external_downloader_args'] = {
+            'aria2c': [
+                '--max-connection-per-server=16',
+                '--split=16',
+                '--min-split-size=1M',
+                '--max-concurrent-downloads=16',
+                '--continue=true',
+            ]
+        }
 
     cookies_file = _get_cookies_file()
 
@@ -427,6 +449,29 @@ class YtDlpUpdaterWorker(QThread):
                 ['pip', 'install', '-U', '--pre', 'yt-dlp', '--quiet'],
                 capture_output=True,
                 creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+class Aria2cInstallerWorker(QThread):
+    """Instala aria2c en segundo plano si no está disponible, para que las
+    descargas con muchos fragmentos (HLS/DASH) vayan más rápido. Si ya está
+    instalado, o si falla la instalación, no hace nada: _build_ydl_opts cae
+    de vuelta al descargador nativo de yt-dlp con descargas concurrentes."""
+
+    def run(self):
+        if shutil.which('aria2c'):
+            return
+        try:
+            subprocess.run(
+                [
+                    'winget', 'install', 'aria2.aria2', '--silent',
+                    '--accept-package-agreements', '--accept-source-agreements',
+                ],
+                capture_output=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                timeout=180,
             )
         except (OSError, subprocess.SubprocessError):
             pass
@@ -1288,6 +1333,9 @@ class SimpleDownloaderWindow(QWidget):
 
         self._updater_worker = YtDlpUpdaterWorker(self)
         self._updater_worker.start()
+
+        self._aria2c_worker = Aria2cInstallerWorker(self)
+        self._aria2c_worker.start()
 
         # Si SimpleHub invalida la sesión (cuenta desactivada o cierre de
         # sesión global), esta app también debe cerrarse.
