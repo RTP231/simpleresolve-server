@@ -1,6 +1,7 @@
 import os
-import base64
-import anthropic
+from google import genai
+from google.genai import types
+from google.genai.errors import APIError, ClientError
 from datetime import datetime, date, timezone
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -11,6 +12,8 @@ from dependencies import get_current_user
 load_dotenv()
 
 router = APIRouter()
+
+GEMINI_MODEL = "gemini-2.5-flash"
 
 ALLOWED_MEDIA_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"}
 
@@ -32,14 +35,14 @@ Examples:
 Never show steps. Never explain. Never add text before or after the answer."""
 
 
-def _get_claude():
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+def _get_gemini():
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="ANTHROPIC_API_KEY no configurada en el servidor.",
+            detail="GEMINI_API_KEY no configurada en el servidor.",
         )
-    return anthropic.Anthropic(api_key=api_key)
+    return genai.Client(api_key=api_key)
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -63,31 +66,27 @@ async def analyze(
         )
 
     image_bytes = await image.read()
-    image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
-    claude = _get_claude()
+    gemini = _get_gemini()
 
     try:
-        with claude.messages.stream(
-            model="claude-opus-4-8",
-            max_tokens=256,
-            system=SYSTEM_PROMPT,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
-                ],
-            }],
-        ) as stream:
-            message = stream.get_final_message()
-    except anthropic.AuthenticationError:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY inválida o revocada.")
-    except anthropic.APIConnectionError as exc:
-        raise HTTPException(status_code=503, detail=f"No se pudo conectar a Anthropic: {exc}")
-    except anthropic.APIError as exc:
-        raise HTTPException(status_code=502, detail=f"Error en la API de Claude: {exc.message}")
+        response = gemini.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=[types.Part.from_bytes(data=image_bytes, mime_type=media_type)],
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=256,
+            ),
+        )
+    except ClientError as exc:
+        mensaje = getattr(exc, "message", None) or str(exc)
+        if "api key" in mensaje.lower():
+            raise HTTPException(status_code=500, detail="GEMINI_API_KEY inválida o revocada.")
+        raise HTTPException(status_code=502, detail=f"Error en la API de Gemini: {mensaje}")
+    except APIError as exc:
+        raise HTTPException(status_code=503, detail=f"No se pudo conectar a Gemini: {exc}")
 
-    answer = next((block.text for block in message.content if block.type == "text"), "")
+    answer = (response.text or "").strip()
 
     now_utc = datetime.now(timezone.utc)
     today = now_utc.date()
