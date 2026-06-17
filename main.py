@@ -8,6 +8,7 @@ integrity.verificar_integridad_o_salir()
 from PyQt6.QtWidgets import QApplication
 from interfaz import SimpleResolve
 import auth_manager
+import marcadores
 
 
 def _aplicar_token_cli():
@@ -19,6 +20,8 @@ def _aplicar_token_cli():
 
 
 def main():
+    if getattr(sys, 'frozen', False):
+        marcadores.crear_marcador('SimpleResolver.exe')
     _aplicar_token_cli()
     app = QApplication(sys.argv)
     ventana = SimpleResolve()

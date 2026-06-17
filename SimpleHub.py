@@ -25,6 +25,7 @@ from fondo_animado import AnimacionFondoWidget, FondoVideoWidget, SeccionFondoAn
 import auth_manager
 import personalizacion
 import actualizador
+import marcadores
 
 try:
     import keyring
@@ -626,6 +627,7 @@ class DialogoDescargaExe(QDialog):
             if os.path.exists(destino):
                 os.remove(destino)
             os.rename(nuevo, destino)
+            marcadores.crear_marcador(self.nombre_exe, actualizador.BASE_DIR)
             self.lbl_estado.setText("Completado.")
             self.accept()
         except OSError as e:
@@ -691,8 +693,13 @@ class SimpleHub(QWidget):
         self._btn_actualizar = None
         self._actualizando = False
         # Verificar actualizaciones 5 s después de arrancar para dar tiempo a
-        # que la CDN de GitHub actualice el version.json cacheado.
-        QTimer.singleShot(5000, self._verificar_actualizacion_silenciosa)
+        # que la CDN de GitHub actualice el version.json cacheado. Se guarda
+        # en un QTimer (no QTimer.singleShot) para poder cancelarlo si el
+        # usuario busca actualizaciones manualmente antes de que dispare.
+        self._timer_auto = QTimer(self)
+        self._timer_auto.setSingleShot(True)
+        self._timer_auto.timeout.connect(self._verificar_actualizacion_silenciosa)
+        self._timer_auto.start(5000)
 
         # Fade-in de 300ms al mostrar la ventana.
         self.setWindowOpacity(0.0)
@@ -1045,6 +1052,8 @@ class SimpleHub(QWidget):
             actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
 
     def _buscar_actualizaciones_manual(self):
+        if hasattr(self, '_timer_auto'):
+            self._timer_auto.stop()
         if self._actualizando:
             return
         if self._hilo_actualizacion and self._hilo_actualizacion.isRunning():
@@ -1074,10 +1083,13 @@ class SimpleHub(QWidget):
                 "No se pudo verificar. Comprueba tu conexión a internet."
             )
         elif info:
-            # Botón queda deshabilitado mientras el diálogo está abierto.
-            # Si el usuario cancela, lo rehabilitamos; si confirma, sys.exit().
-            actualizador.mostrar_dialogo_actualizacion(info, self._accent, self)
-            self._resetear_btn_actualizar()
+            # Botón queda deshabilitado mientras el diálogo está abierto;
+            # se rehabilita al cerrarse (cancelado o, si falla la descarga,
+            # tras el error). Si el usuario confirma y todo va bien, la app
+            # sale sola (sys.exit) y nunca llega a rehabilitarse.
+            actualizador.mostrar_dialogo_actualizacion(
+                info, self._accent, self, al_cerrar=self._resetear_btn_actualizar
+            )
         else:
             self._resetear_btn_actualizar()
             QMessageBox.information(
@@ -1142,6 +1154,8 @@ class SimpleHub(QWidget):
 
 
 if __name__ == "__main__":
+    if getattr(sys, 'frozen', False):
+        marcadores.crear_marcador('SimpleHub.exe')
     app = QApplication(sys.argv)
     try:
         hub = SimpleHub()

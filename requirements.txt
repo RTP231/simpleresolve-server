@@ -4,6 +4,7 @@ pillow
 pynput
 requests
 cryptography
+psutil
 # Para soporte TikTok actualizado: pip install -U --pre "yt-dlp[default]"
 yt-dlp[default]
 imageio-ffmpeg

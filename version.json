@@ -1,5 +1,5 @@
 {
-    "version": "2.2.0",
+    "version": "2.3.0",
     "fecha": "2026-06-16",
     "archivos": [
         "SimpleHub.py",
@@ -17,6 +17,7 @@
         "simplepdf.py",
         "actualizador.py",
         "update_helper.py",
+        "marcadores.py",
         "anti_debug.py",
         "hardware_id.py",
         "integrity.py",

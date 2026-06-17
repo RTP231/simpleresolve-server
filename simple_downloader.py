@@ -45,6 +45,10 @@ from interfaz import PanelGlass, PanelPersonalizacion
 from fondo_animado import AnimacionFondoWidget, FondoVideoWidget
 import personalizacion
 import auth_manager
+import marcadores
+
+if getattr(sys, 'frozen', False):
+    marcadores.crear_marcador('SimpleDownloader.exe')
 
 
 _VIDEO_EXT_RE = re.compile(r'\.(mp4|m3u8|ts|webm|mkv)(?:[?#]|$)', re.IGNORECASE)

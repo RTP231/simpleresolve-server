@@ -37,8 +37,11 @@ GITHUB_RAW = "https://raw.githubusercontent.com/RTP231/simpleresolve-server/clie
 GITHUB_RELEASES = "https://github.com/RTP231/simpleresolve-server/releases/latest/download"
 VERSION_FILE = os.path.join(BASE_DIR, 'version.json')
 
-# Exes que se reemplazan en una actualización compilada.
-ARCHIVOS_EXE = ARCHIVOS_CRITICOS_EXE
+# Exes que se reemplazan en una actualización compilada. update_helper.exe
+# se incluye aparte de ARCHIVOS_CRITICOS_EXE: ese último se usa también para
+# verificar integridad al arrancar, y update_helper.exe queda excluido de esa
+# verificación a propósito (ver integrity.py), pero sí debe poder actualizarse.
+ARCHIVOS_EXE = ARCHIVOS_CRITICOS_EXE + ['update_helper.exe']
 
 _C_BG = '#0d0d0d'
 _C_CARD = '#1a1a1a'
@@ -109,6 +112,10 @@ class HiloDescargaActualizacion(QThread):
 
 
 class DialogoActualizacion(QDialog):
+    # Evita que se muestren dos diálogos de actualización a la vez (p. ej.
+    # si el chequeo automático y el manual responden casi al mismo tiempo).
+    _dialog_activo = None
+
     def __init__(self, info_remota, accent='#7c3aed', parent=None):
         super().__init__(parent)
         self.info_remota = info_remota
@@ -240,9 +247,23 @@ def lanzar_update_helper():
         subprocess.Popen([sys.executable, helper], cwd=BASE_DIR)
 
 
-def mostrar_dialogo_actualizacion(info_remota, accent='#7c3aed', parent=None):
-    """Muestra el diálogo de actualización. Devuelve True si el usuario
-    confirmó (en cuyo caso la app ya está saliendo), False si lo descartó."""
+def mostrar_dialogo_actualizacion(info_remota, accent='#7c3aed', parent=None, al_cerrar=None):
+    """Muestra el diálogo de actualización, sin bloquear, y evita abrir uno
+    nuevo si ya hay otro abierto (ver DialogoActualizacion._dialog_activo).
+    Si el usuario confirma y la descarga termina bien, el propio diálogo
+    sale de la app (sys.exit). `al_cerrar`, si se da, se llama cuando el
+    diálogo se cierra (aceptado o descartado)."""
+    if DialogoActualizacion._dialog_activo is not None:
+        return
+
     dlg = DialogoActualizacion(info_remota, accent, parent)
-    resultado = dlg.exec()
-    return resultado == QDialog.DialogCode.Accepted
+    DialogoActualizacion._dialog_activo = dlg
+
+    def _liberar():
+        DialogoActualizacion._dialog_activo = None
+        if al_cerrar:
+            al_cerrar()
+
+    dlg.finished.connect(_liberar)
+    dlg.setModal(True)
+    dlg.show()
