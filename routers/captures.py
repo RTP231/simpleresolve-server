@@ -13,7 +13,7 @@ load_dotenv()
 
 router = APIRouter()
 
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-2.5-ptro"
 
 ALLOWED_MEDIA_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"}
 
