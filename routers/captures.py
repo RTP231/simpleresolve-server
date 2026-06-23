@@ -75,7 +75,8 @@ async def analyze(
             contents=[types.Part.from_bytes(data=image_bytes, mime_type=media_type)],
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
-                max_output_tokens=256,
+                max_output_tokens=2048,
+                thinking_config=types.ThinkingConfig(thinking_budget=512),
             ),
         )
     except ClientError as exc:
@@ -87,6 +88,12 @@ async def analyze(
         raise HTTPException(status_code=503, detail=f"No se pudo conectar a Gemini: {exc}")
 
     answer = (response.text or "").strip()
+    if not answer:
+        finish_reason = getattr(response.candidates[0], "finish_reason", None) if response.candidates else None
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gemini no devolvió respuesta (finish_reason={finish_reason}).",
+        )
 
     now_utc = datetime.now(timezone.utc)
     today = now_utc.date()
