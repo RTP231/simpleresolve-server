@@ -97,25 +97,25 @@ _MIN_VIDEO_SIZE_BYTES = 1024 * 1024  # 1 MB
 
 _SITIOS_CONOCIDOS = (
     'youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com',
-    'twitter.com', 'x.com', 'facebook.com', 'vimeo.com',
-    'twitch.tv', 'dailymotion.com',
+    'twitter.com', 'x.com', 'facebook.com', 'fb.watch', 'vimeo.com',
+    'twitch.tv', 'dailymotion.com', 'reddit.com', 'v.redd.it',
 )
 
 _CHROME_USER_AGENT = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-    '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    '(KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
 )
 _ACCEPT_LANGUAGE = 'es-GT,es;q=0.9,en;q=0.8'
 
 _TIKTOK_HTTP_HEADERS = {
     'User-Agent': (
-        'Mozilla/5.0 (Linux; Android 12; SM-G998B) AppleWebKit/537.36 '
-        '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+        'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36'
     ),
     'Referer': 'https://www.tiktok.com/',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': _ACCEPT_LANGUAGE,
-    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
+    'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="137", "Google Chrome";v="137"',
     'sec-ch-ua-mobile': '?1',
     'sec-ch-ua-platform': '"Android"',
 }
@@ -128,6 +128,8 @@ else:
 _YOUTUBE_COOKIES_PATH = os.path.join(_APP_DIR, 'youtube_cookies.txt')
 _TIKTOK_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_tiktok_cookies.txt')
 _FACEBOOK_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_facebook_cookies.txt')
+_INSTAGRAM_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_instagram_cookies.txt')
+_TWITTER_COOKIES_PATH = os.path.join(_APP_DIR, 'temp_twitter_cookies.txt')
 
 
 def _get_cookies_file():
@@ -167,7 +169,6 @@ def _apply_tiktok_opts(opts, url, cookies_file=None):
     opts['extractor_args'] = {
         'tiktok': {
             'webpage_download': True,
-            'api_hostname': 'api22-normal-c-useast2a.tiktokv.com',
         }
     }
     if cookies_file:
@@ -177,6 +178,20 @@ def _apply_tiktok_opts(opts, url, cookies_file=None):
 
 _FACEBOOK_HTTP_HEADERS = {
     'User-Agent': _CHROME_USER_AGENT,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': _ACCEPT_LANGUAGE,
+}
+
+_INSTAGRAM_HTTP_HEADERS = {
+    'User-Agent': _CHROME_USER_AGENT,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': _ACCEPT_LANGUAGE,
+}
+
+_TWITTER_HTTP_HEADERS = {
+    'User-Agent': _CHROME_USER_AGENT,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': _ACCEPT_LANGUAGE,
 }
 
 
@@ -191,6 +206,28 @@ def _apply_facebook_opts(opts, url, cookies_file=None):
     return opts
 
 
+def _apply_instagram_opts(opts, url, cookies_file=None):
+    """Aplica cabeceras y cookies para que yt-dlp pueda descargar reels/posts
+    de Instagram. Sin cookies muchos contenidos requieren login."""
+    if 'instagram.com' not in url.lower():
+        return opts
+    opts['http_headers'] = dict(_INSTAGRAM_HTTP_HEADERS)
+    if cookies_file:
+        opts['cookiefile'] = cookies_file
+    return opts
+
+
+def _apply_twitter_opts(opts, url, cookies_file=None):
+    """Aplica cabeceras y cookies para que yt-dlp pueda descargar videos de
+    Twitter/X. Sin cookies los videos de cuentas privadas no son accesibles."""
+    if 'twitter.com' not in url.lower() and 'x.com' not in url.lower():
+        return opts
+    opts['http_headers'] = dict(_TWITTER_HTTP_HEADERS)
+    if cookies_file:
+        opts['cookiefile'] = cookies_file
+    return opts
+
+
 _AUTH_ERROR_RE = re.compile(
     r'sign in|login|cookies|private video|members-only|age[- ]restricted|forbidden|403',
     re.IGNORECASE,
@@ -199,6 +236,90 @@ _AUTH_ERROR_RE = re.compile(
 # Errores que indican un problema de conectividad (no de la URL/video en
 # sí), candidatos a reintentar automáticamente en vez de fallar de una vez.
 _ERRORES_RED = ('network', 'connection', 'timeout', 'reset', 'refused', 'unreachable')
+
+# Errores que indican que yt-dlp no tiene extractor para ese sitio.
+_UNSUPPORTED_RE = re.compile(
+    r'unsupported url|no suitable extractor|no video|unable to extract|'
+    r'this video is unavailable|video unavailable|extractor error|'
+    r'is not a.*url|unrecognized|not supported',
+    re.IGNORECASE,
+)
+
+_FAILED_SITES_LOG_PATH = os.path.join(
+    os.path.dirname(sys.executable) if getattr(sys, 'frozen', False)
+    else os.path.dirname(os.path.abspath(__file__)),
+    'failed_sites_log.json',
+)
+_FAILED_SITES_MAX = 100
+
+_SITE_FIXES_CACHE_PATH = os.path.join(
+    os.path.dirname(sys.executable) if getattr(sys, 'frozen', False)
+    else os.path.dirname(os.path.abspath(__file__)),
+    'site_fixes_cache.json',
+)
+_SITE_FIXES_FETCH_INTERVAL = 86400   # 24 horas entre cada fetch al servidor
+
+# Caché en memoria de fixes del servidor: {domain -> dict con opts de yt-dlp}
+_site_fixes_cache: dict = {}
+
+
+def _cargar_site_fixes_cache():
+    """Carga el caché local de fixes (guardado en el último fetch exitoso)."""
+    global _site_fixes_cache
+    try:
+        with open(_SITE_FIXES_CACHE_PATH, 'r', encoding='utf-8') as f:
+            _site_fixes_cache = json.load(f)
+    except (OSError, ValueError, TypeError):
+        _site_fixes_cache = {}
+
+
+def _guardar_site_fixes_cache(fixes: dict):
+    global _site_fixes_cache
+    _site_fixes_cache = fixes
+    try:
+        with open(_SITE_FIXES_CACHE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(fixes, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def _apply_server_fixes(opts: dict, url: str) -> dict:
+    """Si el servidor tiene un fix para el dominio de esta URL, lo aplica
+    encima de las opciones ya construidas (el fix del servidor tiene prioridad
+    sobre los defaults locales para sitios desconocidos)."""
+    if not _site_fixes_cache:
+        return opts
+    domain = urlparse(url).netloc.lower().removeprefix('www.')
+    fix = _site_fixes_cache.get(domain)
+    if fix is None:
+        # Búsqueda parcial: "sub.site.com" coincide con "site.com"
+        for cached_domain, cached_fix in _site_fixes_cache.items():
+            if cached_domain in domain or domain.endswith('.' + cached_domain):
+                fix = cached_fix
+                break
+    if not fix:
+        return opts
+    if 'http_headers' in fix:
+        opts['http_headers'] = dict(fix['http_headers'])
+    if 'extractor_args' in fix:
+        opts['extractor_args'] = fix['extractor_args']
+    if 'format' in fix:
+        opts['format'] = fix['format']
+    if 'cookiefile' in fix and fix['cookiefile']:
+        opts['cookiefile'] = fix['cookiefile']
+    return opts
+
+
+def _clasificar_error_sitio(mensaje):
+    """Devuelve el tipo de error para el log: 'unsupported', 'auth',
+    'network' o 'other'."""
+    if _UNSUPPORTED_RE.search(mensaje):
+        return 'unsupported'
+    if _AUTH_ERROR_RE.search(mensaje):
+        return 'auth'
+    if _es_error_de_red(mensaje):
+        return 'network'
+    return 'other'
 
 
 def _es_error_de_red(mensaje):
@@ -239,7 +360,8 @@ _FORMAT_FALLBACK = {
 
 
 def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None,
-                     facebook_cookies_file=None):
+                     facebook_cookies_file=None, instagram_cookies_file=None,
+                     twitter_cookies_file=None):
     """Construye las opciones de yt-dlp según calidad, formato y URL elegidos."""
     opts = {
         'outtmpl': os.path.join(dest_folder, '%(title)s.%(ext)s'),
@@ -279,14 +401,17 @@ def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None,
         _apply_tiktok_opts(opts, url, tiktok_cookies_file or cookies_file)
     elif 'facebook.com' in url_lower or 'fb.watch' in url_lower:
         _apply_facebook_opts(opts, url, facebook_cookies_file or cookies_file)
+    elif 'instagram.com' in url_lower:
+        _apply_instagram_opts(opts, url, instagram_cookies_file or cookies_file)
+    elif 'twitter.com' in url_lower or 'x.com' in url_lower:
+        _apply_twitter_opts(opts, url, twitter_cookies_file or cookies_file)
     else:
         if cookies_file:
             opts['cookiefile'] = cookies_file
-        if 'youtube.com' in url.lower() or 'youtu.be' in url.lower():
+        if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
             opts['extractor_args'] = {
                 'youtube': {
-                    'player_client': ['web', 'android', 'ios'],
-                    'player_skip': ['webpage', 'configs'],
+                    'player_client': ['ios', 'tv_embedded', 'android', 'web'],
                 }
             }
 
@@ -306,6 +431,11 @@ def _build_ydl_opts(quality, fmt, dest_folder, url='', tiktok_cookies_file=None,
         opts['merge_output_format'] = merge_fmt
 
     opts['postprocessors'] = postprocessors
+
+    # Aplicar fix del servidor si existe para este dominio (tiene prioridad
+    # sobre los defaults locales para sitios que antes fallaban).
+    _apply_server_fixes(opts, url)
+
     return opts
 
 
@@ -318,8 +448,15 @@ def _get_fresh_url(page_url):
         'no_warnings': True,
         'http_headers': {'User-Agent': _CHROME_USER_AGENT},
     }
-    if 'tiktok.com' in page_url.lower():
+    url_lower = page_url.lower()
+    if 'tiktok.com' in url_lower:
         _apply_tiktok_opts(opts, page_url, cookies_file)
+    elif 'facebook.com' in url_lower or 'fb.watch' in url_lower:
+        _apply_facebook_opts(opts, page_url, cookies_file)
+    elif 'instagram.com' in url_lower:
+        _apply_instagram_opts(opts, page_url, cookies_file)
+    elif 'twitter.com' in url_lower or 'x.com' in url_lower:
+        _apply_twitter_opts(opts, page_url, cookies_file)
     elif cookies_file:
         opts['cookiefile'] = cookies_file
     try:
@@ -453,16 +590,22 @@ class VideoCardSizeResolverWorker(QThread):
             else:
                 opts = {'quiet': True, 'no_warnings': True}
                 cookies_file = _get_cookies_file()
-                if 'tiktok.com' in self.url.lower():
+                url_lower = self.url.lower()
+                if 'tiktok.com' in url_lower:
                     _apply_tiktok_opts(opts, self.url, cookies_file)
+                elif 'facebook.com' in url_lower or 'fb.watch' in url_lower:
+                    _apply_facebook_opts(opts, self.url, cookies_file)
+                elif 'instagram.com' in url_lower:
+                    _apply_instagram_opts(opts, self.url, cookies_file)
+                elif 'twitter.com' in url_lower or 'x.com' in url_lower:
+                    _apply_twitter_opts(opts, self.url, cookies_file)
                 else:
                     if cookies_file:
                         opts['cookiefile'] = cookies_file
-                    if 'youtube.com' in self.url.lower() or 'youtu.be' in self.url.lower():
+                    if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                         opts['extractor_args'] = {
                             'youtube': {
-                                'player_client': ['web', 'android', 'ios'],
-                                'player_skip': ['webpage', 'configs'],
+                                'player_client': ['ios', 'tv_embedded', 'android', 'web'],
                             }
                         }
                 with yt_dlp.YoutubeDL(opts) as ydl:
@@ -505,6 +648,74 @@ class YtDlpUpdaterWorker(QThread):
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError):
+            pass
+
+
+class SiteAutoUpdateWorker(QThread):
+    """Actualiza yt-dlp al detectar un sitio no soportado (error 'unsupported
+    URL'). Al terminar emite `done(exitoso)` para que la UI ofrezca reintentar."""
+
+    done = pyqtSignal(bool)
+
+    def run(self):
+        try:
+            r = subprocess.run(
+                ['pip', 'install', '-U', '--pre', 'yt-dlp', '--quiet'],
+                capture_output=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                timeout=90,
+            )
+            self.done.emit(r.returncode == 0)
+        except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
+            self.done.emit(False)
+
+
+class SiteFixesFetchWorker(QThread):
+    """Descarga el JSON de fixes desde el servidor y lo cachea localmente.
+    Se ejecuta al iniciar la app y luego cada 24 h."""
+
+    fetched = pyqtSignal(dict)   # emite el dict de fixes cuando tiene datos
+
+    def run(self):
+        try:
+            from config import SERVER_URL
+            token = auth_manager.cargar_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            resp = requests.get(
+                f"{SERVER_URL}/downloader/site-fixes",
+                headers=headers,
+                timeout=12,
+            )
+            if resp.status_code == 200:
+                fixes = resp.json().get('fixes') or {}
+                if isinstance(fixes, dict):
+                    self.fetched.emit(fixes)
+        except Exception:
+            pass
+
+
+class SiteFailureTelemetryWorker(QThread):
+    """Envía silenciosamente un reporte de fallo al servidor para que el
+    desarrollador vea qué dominios fallan con frecuencia y prepare fixes."""
+
+    def __init__(self, domain: str, error_type: str, parent=None):
+        super().__init__(parent)
+        self.domain = domain
+        self.error_type = error_type
+
+    def run(self):
+        try:
+            from config import SERVER_URL
+            token = auth_manager.cargar_token()
+            if not token:
+                return
+            requests.post(
+                f"{SERVER_URL}/downloader/site-failure",
+                json={'domain': self.domain, 'error_type': self.error_type},
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=8,
+            )
+        except Exception:
             pass
 
 
@@ -567,8 +778,23 @@ class InfoResolverWorker(QThread):
     def run(self):
         opts = {'quiet': True, 'no_warnings': True, 'extract_flat': False}
         cookies_file = _get_cookies_file()
-        if 'tiktok.com' in self.url.lower():
+        url_lower = self.url.lower()
+        if 'tiktok.com' in url_lower:
             _apply_tiktok_opts(opts, self.url, cookies_file)
+        elif 'facebook.com' in url_lower or 'fb.watch' in url_lower:
+            _apply_facebook_opts(opts, self.url, cookies_file)
+        elif 'instagram.com' in url_lower:
+            _apply_instagram_opts(opts, self.url, cookies_file)
+        elif 'twitter.com' in url_lower or 'x.com' in url_lower:
+            _apply_twitter_opts(opts, self.url, cookies_file)
+        elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+            if cookies_file:
+                opts['cookiefile'] = cookies_file
+            opts['extractor_args'] = {
+                'youtube': {
+                    'player_client': ['ios', 'tv_embedded', 'android', 'web'],
+                }
+            }
         elif cookies_file:
             opts['cookiefile'] = cookies_file
         try:
@@ -646,10 +872,13 @@ def _extraer_id_youtube(url):
 
 _VIDEO_PAGE_SITES = [
     'tiktok.com/',
-    'instagram.com/reel', 'instagram.com/p/',
+    'instagram.com/reel', 'instagram.com/p/', 'instagram.com/tv/',
     'twitter.com/i/status', 'x.com/i/status',
-    'facebook.com/watch', 'facebook.com/reel',
+    'twitter.com/', 'x.com/',
+    'facebook.com/watch', 'facebook.com/reel', 'facebook.com/videos/',
+    'fb.watch/',
     'vimeo.com/', 'twitch.tv/', 'dailymotion.com/video',
+    'reddit.com/r/', 'v.redd.it/',
 ]
 
 _SITE_DISPLAY_NAMES = {
@@ -657,8 +886,9 @@ _SITE_DISPLAY_NAMES = {
     'tiktok.com': 'TikTok',
     'instagram.com': 'Instagram',
     'twitter.com': 'Twitter/X', 'x.com': 'Twitter/X',
-    'facebook.com': 'Facebook',
+    'facebook.com': 'Facebook', 'fb.watch': 'Facebook',
     'vimeo.com': 'Vimeo', 'twitch.tv': 'Twitch', 'dailymotion.com': 'Dailymotion',
+    'reddit.com': 'Reddit', 'v.redd.it': 'Reddit',
 }
 
 
@@ -1252,6 +1482,127 @@ class HistoryItemWidget(QFrame):
             os.startfile(carpeta)
 
 
+class FailedSiteItemWidget(QFrame):
+    """Tarjeta compacta del log de sitios fallidos: dominio, tipo de error,
+    timestamp y botón de reintento. El estado cambia cuando yt-dlp se
+    actualiza automáticamente en segundo plano."""
+
+    retry_requested = pyqtSignal(str)   # url
+
+    CARD_HEIGHT = 52
+
+    _TIPO_ICONO = {
+        'unsupported': '🔴',
+        'auth':        '🔒',
+        'network':     '📡',
+        'other':       '⚠️',
+    }
+    _TIPO_TEXTO = {
+        'unsupported': 'Sitio no soportado',
+        'auth':        'Requiere login / cookies',
+        'network':     'Error de red',
+        'other':       'Error al descargar',
+    }
+
+    def __init__(self, entry, parent=None):
+        super().__init__(parent)
+        self.url = entry.get('url', '')
+        self.domain = entry.get('domain', '')
+        self.error_type = entry.get('error_type', 'other')
+        self._entry = entry
+        self.setFixedHeight(self.CARD_HEIGHT)
+
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {_C_BG_EL};
+                border: none;
+                border-left: 4px solid #ef4444;
+                border-radius: 5px;
+            }}
+        """)
+
+        root = QHBoxLayout(self)
+        root.setContentsMargins(8, 6, 8, 6)
+        root.setSpacing(8)
+
+        icono = self._TIPO_ICONO.get(self.error_type, '⚠️')
+        lbl_icon = QLabel(icono)
+        lbl_icon.setFixedWidth(18)
+        lbl_icon.setStyleSheet("background: transparent; font-size: 13px;")
+        root.addWidget(lbl_icon)
+
+        col = QVBoxLayout()
+        col.setSpacing(2)
+
+        domain_display = self.domain or urlparse(self.url).netloc
+        self.lbl_domain = QLabel(domain_display)
+        self.lbl_domain.setStyleSheet(
+            f"color: {_C_TEXT}; font-weight: bold; font-size: 11px; background: transparent;"
+        )
+        col.addWidget(self.lbl_domain)
+
+        tipo_txt = self._TIPO_TEXTO.get(self.error_type, 'Error')
+        fecha = entry.get('timestamp', '')
+        self.lbl_info = QLabel(f"{tipo_txt} · {fecha}")
+        self.lbl_info.setStyleSheet(
+            f"color: {_C_TEXT_SEC}; font-size: 9px; background: transparent;"
+        )
+        col.addWidget(self.lbl_info)
+        root.addLayout(col, 1)
+
+        self.btn_retry = QPushButton("↻ Reintentar")
+        self.btn_retry.setFixedHeight(22)
+        self.btn_retry.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #1a1a1a;
+                border: 1px solid {_C_BORDER};
+                border-radius: 4px;
+                color: {_C_TEXT_SEC};
+                font-size: 9px;
+                padding: 0px 8px;
+            }}
+            QPushButton:hover {{ color: {_C_BLUE}; border-color: {_C_BLUE}; }}
+        """)
+        self.btn_retry.clicked.connect(lambda: self.retry_requested.emit(self.url))
+        root.addWidget(self.btn_retry)
+
+    def set_actualizando(self):
+        self.btn_retry.setEnabled(False)
+        self.btn_retry.setText("Actualizando...")
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {_C_BG_EL};
+                border: none;
+                border-left: 4px solid {_C_YELLOW};
+                border-radius: 5px;
+            }}
+        """)
+
+    def set_listo_para_reintentar(self):
+        self.btn_retry.setEnabled(True)
+        self.btn_retry.setText("↻ Reintentar")
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {_C_BG_EL};
+                border: none;
+                border-left: 4px solid {_C_GREEN};
+                border-radius: 5px;
+            }}
+        """)
+
+    def set_resuelto(self):
+        self.btn_retry.setEnabled(False)
+        self.btn_retry.setText("✓ Resuelto")
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {_C_BG_EL};
+                border: none;
+                border-left: 4px solid {_C_GREEN};
+                border-radius: 5px;
+            }}
+        """)
+
+
 class DownloadWorker(QThread):
     """Descarga un video usando la API de Python de yt-dlp en su propio hilo.
 
@@ -1436,6 +1787,12 @@ class SimpleDownloaderWindow(QWidget):
         self._historial_thumb_workers = []
         self._info_workers = {}       # item_id -> InfoResolverWorker
 
+        self._failed_sites_log = []          # lista de dicts con entradas del log
+        self._failed_site_widgets = {}       # domain -> FailedSiteItemWidget
+        self._auto_update_worker = None      # SiteAutoUpdateWorker activo
+        self._auto_update_pending = []       # (url, item_id) esperando reintento tras update
+        self._last_auto_update_ts = 0.0      # timestamp del último update (evita spam)
+
         self._stream_resolver = None
         self._streams_resolved_for_url = None
         self._size_workers = []
@@ -1454,6 +1811,18 @@ class SimpleDownloaderWindow(QWidget):
         self.aplicar_tema()
         self._aplicar_personalizacion_visual()
         self._cargar_historial()
+        self._cargar_failed_sites_log()
+
+        # Cargar caché local de fixes y arrancar el fetch al servidor
+        _cargar_site_fixes_cache()
+        self._fixes_fetch_workers = []
+        self._fetch_site_fixes()
+
+        # Timer para refrescar fixes del servidor cada 24 h
+        self._timer_fixes = QTimer(self)
+        self._timer_fixes.setInterval(_SITE_FIXES_FETCH_INTERVAL * 1000)
+        self._timer_fixes.timeout.connect(self._fetch_site_fixes)
+        self._timer_fixes.start()
 
         self._updater_worker = YtDlpUpdaterWorker(self)
         self._updater_worker.start()
@@ -1945,6 +2314,34 @@ class SimpleDownloaderWindow(QWidget):
         self.historial_layout.addStretch()
         self.historial_scroll.setWidget(self.historial_container)
         lay.addWidget(self.historial_scroll)
+
+        # Panel de sitios fallidos
+        self.btn_failed_toggle = QPushButton("▸ Sitios fallidos (0)")
+        self.btn_failed_toggle.setCheckable(True)
+        self.btn_failed_toggle.setToolTip(
+            "Sitios donde fallaron descargas. SimpleDownloader intenta actualizar "
+            "yt-dlp automáticamente para agregarles soporte."
+        )
+        self.btn_failed_toggle.setStyleSheet(
+            "text-align: left; font-size: 10px; padding: 4px 8px; color: #ef4444;"
+        )
+        self.btn_failed_toggle.clicked.connect(self._toggle_failed_sites)
+        lay.addWidget(self.btn_failed_toggle)
+
+        self.failed_scroll = QScrollArea()
+        self.failed_scroll.setWidgetResizable(True)
+        self.failed_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.failed_scroll.setMaximumHeight(160)
+        self.failed_scroll.setVisible(False)
+
+        self.failed_container = QWidget()
+        self.failed_container.setStyleSheet("background: transparent;")
+        self.failed_layout = QVBoxLayout(self.failed_container)
+        self.failed_layout.setContentsMargins(0, 0, 0, 0)
+        self.failed_layout.setSpacing(4)
+        self.failed_layout.addStretch()
+        self.failed_scroll.setWidget(self.failed_container)
+        lay.addWidget(self.failed_scroll)
 
         return self.glass_control
 
@@ -2461,6 +2858,21 @@ class SimpleDownloaderWindow(QWidget):
             'facebook', 'https://www.facebook.com', _FACEBOOK_COOKIES_PATH
         )
 
+    def _exportar_cookies_instagram(self):
+        return self._exportar_cookies_sitio(
+            'instagram', 'https://www.instagram.com', _INSTAGRAM_COOKIES_PATH
+        )
+
+    def _exportar_cookies_twitter(self):
+        cookies_path = self._exportar_cookies_sitio(
+            'twitter', 'https://twitter.com', _TWITTER_COOKIES_PATH
+        )
+        if cookies_path is None:
+            cookies_path = self._exportar_cookies_sitio(
+                'x.com', 'https://x.com', _TWITTER_COOKIES_PATH
+            )
+        return cookies_path
+
     def _navigate_to_url_bar(self):
         view = self._current_webview()
         if view is None:
@@ -2893,11 +3305,21 @@ class SimpleDownloaderWindow(QWidget):
         if 'facebook.com' in url_lower or 'fb.watch' in url_lower:
             facebook_cookies_file = self._exportar_cookies_facebook()
 
+        instagram_cookies_file = None
+        if 'instagram.com' in url_lower:
+            instagram_cookies_file = self._exportar_cookies_instagram()
+
+        twitter_cookies_file = None
+        if 'twitter.com' in url_lower or 'x.com' in url_lower:
+            twitter_cookies_file = self._exportar_cookies_twitter()
+
         item_id = uuid.uuid4().hex
         ydl_opts = _build_ydl_opts(
             quality, fmt, self._dest_folder, url=url,
             tiktok_cookies_file=tiktok_cookies_file,
             facebook_cookies_file=facebook_cookies_file,
+            instagram_cookies_file=instagram_cookies_file,
+            twitter_cookies_file=twitter_cookies_file,
         )
 
         widget = QueueItemWidget(item_id, url, dest_folder=self._dest_folder, source_url=url)
@@ -3040,6 +3462,9 @@ class SimpleDownloaderWindow(QWidget):
             if video_id:
                 thumb_url = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
 
+        if source_url:
+            self._marcar_sitio_resuelto(source_url)
+
         if not self._incognito:
             if not titulo and ruta:
                 titulo = os.path.splitext(os.path.basename(ruta))[0]
@@ -3148,12 +3573,184 @@ class SimpleDownloaderWindow(QWidget):
                 texto = _mensaje_error_legible(mensaje)
             widget.set_status('error', detail=texto)
 
+            source_url = widget.source_url if widget else ''
+            if source_url:
+                self._registrar_fallo_sitio(source_url, mensaje, item_id)
+
     def _cleanup_worker(self, item_id):
         self._workers.pop(item_id, None)
         self._active_count = max(0, self._active_count - 1)
         self._item_progress.pop(item_id, None)
         self._actualizar_progreso_global()
         self._procesar_cola()
+
+    # ------------------------------------------------------------------
+    # Log de sitios fallidos
+    # ------------------------------------------------------------------
+    def _fetch_site_fixes(self):
+        """Descarga el JSON de fixes del servidor en segundo plano y actualiza
+        el caché local. Se llama al iniciar y cada 24 h via _timer_fixes."""
+        worker = SiteFixesFetchWorker(self)
+        self._fixes_fetch_workers.append(worker)
+        worker.fetched.connect(self._on_site_fixes_fetched)
+        worker.finished.connect(
+            lambda w=worker: self._fixes_fetch_workers.remove(w)
+            if w in self._fixes_fetch_workers else None
+        )
+        worker.start()
+
+    def _on_site_fixes_fetched(self, fixes: dict):
+        """Guarda los fixes recibidos y reintenta automáticamente los sitios
+        del log que ahora tienen un fix disponible."""
+        _guardar_site_fixes_cache(fixes)
+        # Si algún dominio fallido ya tiene fix, ofrecer reintento
+        for domain, card in list(self._failed_site_widgets.items()):
+            entry = next((e for e in self._failed_sites_log if e.get('domain') == domain), {})
+            if entry.get('resolved'):
+                continue
+            domain_clean = domain.removeprefix('www.')
+            has_fix = domain_clean in fixes or any(
+                domain_clean.endswith('.' + d) or d in domain_clean
+                for d in fixes
+            )
+            if has_fix:
+                card.set_listo_para_reintentar()
+
+    def _toggle_failed_sites(self, checked):
+        self.failed_scroll.setVisible(checked)
+        self._actualizar_texto_failed()
+
+    def _actualizar_texto_failed(self):
+        flecha = "▾" if self.btn_failed_toggle.isChecked() else "▸"
+        total = len(self._failed_site_widgets)
+        color = "#ef4444" if total else _C_TEXT_SEC
+        self.btn_failed_toggle.setStyleSheet(
+            f"text-align: left; font-size: 10px; padding: 4px 8px; color: {color};"
+        )
+        self.btn_failed_toggle.setText(f"{flecha} Sitios fallidos ({total})")
+
+    def _registrar_fallo_sitio(self, url, mensaje, item_id=None):
+        """Registra un fallo en el log y, si el sitio no está soportado por
+        yt-dlp, dispara una actualización automática en segundo plano."""
+        error_type = _clasificar_error_sitio(mensaje)
+        # Errores de red ya se reintentan en DownloadWorker; no los logueamos.
+        if error_type == 'network':
+            return
+
+        domain = urlparse(url).netloc.lower()
+        if not domain:
+            return
+
+        timestamp = datetime.now().strftime('%d/%m/%Y %H:%M')
+        entrada = {
+            'domain': domain,
+            'url': url,
+            'error': mensaje[:300],
+            'error_type': error_type,
+            'timestamp': timestamp,
+            'resolved': False,
+        }
+
+        # Actualizar o insertar en la lista del log (máx 1 entrada por dominio)
+        self._failed_sites_log = [e for e in self._failed_sites_log if e.get('domain') != domain]
+        self._failed_sites_log.insert(0, entrada)
+        if len(self._failed_sites_log) > _FAILED_SITES_MAX:
+            self._failed_sites_log = self._failed_sites_log[:_FAILED_SITES_MAX]
+        self._guardar_failed_sites_log()
+
+        # Enviar telemetría al servidor (silencioso, en segundo plano)
+        t = SiteFailureTelemetryWorker(domain, error_type, self)
+        self._fixes_fetch_workers.append(t)
+        t.finished.connect(lambda w=t: self._fixes_fetch_workers.remove(w) if w in self._fixes_fetch_workers else None)
+        t.start()
+
+        # Actualizar o crear el widget
+        if domain in self._failed_site_widgets:
+            old = self._failed_site_widgets[domain]
+            self.failed_layout.removeWidget(old)
+            old.setParent(None)
+            old.deleteLater()
+
+        card = FailedSiteItemWidget(entrada, self)
+        card.retry_requested.connect(self._reintentar_desde_log)
+        self.failed_layout.insertWidget(0, card)
+        self._failed_site_widgets[domain] = card
+        self._actualizar_texto_failed()
+
+        # Auto-actualizar yt-dlp si el sitio no está soportado y no se
+        # actualizó en las últimas 2 horas (evita hammer pip).
+        if error_type == 'unsupported':
+            ahora = time.time()
+            if ahora - self._last_auto_update_ts > 7200:  # máx una vez cada 2 horas
+                self._last_auto_update_ts = ahora
+                if item_id:
+                    self._auto_update_pending.append((url, item_id))
+                card.set_actualizando()
+                self._disparar_auto_update()
+            else:
+                card.set_listo_para_reintentar()
+
+    def _disparar_auto_update(self):
+        if self._auto_update_worker is not None and self._auto_update_worker.isRunning():
+            return
+        self._auto_update_worker = SiteAutoUpdateWorker(self)
+        self._auto_update_worker.done.connect(self._on_auto_update_done)
+        self._auto_update_worker.start()
+
+    def _on_auto_update_done(self, exitoso):
+        # Marcar todas las tarjetas de sitios no soportados como listas para reintentar
+        for domain, card in self._failed_site_widgets.items():
+            entry = next((e for e in self._failed_sites_log if e.get('domain') == domain), {})
+            if entry.get('error_type') == 'unsupported' and not entry.get('resolved'):
+                card.set_listo_para_reintentar()
+
+        # Reintentar automáticamente las descargas que estaban esperando
+        for url, item_id in list(self._auto_update_pending):
+            self._reintentar_descarga(item_id)
+        self._auto_update_pending.clear()
+
+    def _reintentar_desde_log(self, url):
+        """Pone de nuevo en cola la descarga de una URL del log de fallos."""
+        self.url_field.setText(url)
+        self._agregar_descarga(prioridad=True)
+
+    def _marcar_sitio_resuelto(self, url):
+        """Marca como resuelto el dominio de una URL que acaba de descargarse
+        con éxito (para actualizar el log si antes había fallado)."""
+        domain = urlparse(url).netloc.lower()
+        for entry in self._failed_sites_log:
+            if entry.get('domain') == domain:
+                entry['resolved'] = True
+        card = self._failed_site_widgets.get(domain)
+        if card:
+            card.set_resuelto()
+        self._guardar_failed_sites_log()
+
+    def _guardar_failed_sites_log(self):
+        try:
+            with open(_FAILED_SITES_LOG_PATH, 'w', encoding='utf-8') as f:
+                json.dump(self._failed_sites_log, f, ensure_ascii=False, indent=2)
+        except OSError:
+            pass
+
+    def _cargar_failed_sites_log(self):
+        try:
+            with open(_FAILED_SITES_LOG_PATH, 'r', encoding='utf-8') as f:
+                self._failed_sites_log = json.load(f)
+        except (OSError, ValueError, TypeError):
+            self._failed_sites_log = []
+        for entry in self._failed_sites_log:
+            domain = entry.get('domain', '')
+            if not domain or domain in self._failed_site_widgets:
+                continue
+            card = FailedSiteItemWidget(entry, self)
+            card.retry_requested.connect(self._reintentar_desde_log)
+            if entry.get('resolved'):
+                card.set_resuelto()
+            pos = max(0, self.failed_layout.count() - 1)
+            self.failed_layout.insertWidget(pos, card)
+            self._failed_site_widgets[domain] = card
+        self._actualizar_texto_failed()
 
     # ------------------------------------------------------------------
     def closeEvent(self, event):
